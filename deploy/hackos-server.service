@@ -1,0 +1,31 @@
+# systemd unit for the HACKOS API server (plan D30).
+#   sudo cp deploy/hackos-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now hackos-server
+#   journalctl -u hackos-server -f        # logs
+
+[Unit]
+Description=HACKOS API server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hackos
+WorkingDirectory=/opt/hackos/apps/server
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+# Lets in-flight requests finish and flushes live stats on restart.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/hackos/apps/server
+
+[Install]
+WantedBy=multi-user.target

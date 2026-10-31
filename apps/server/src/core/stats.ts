@@ -53,7 +53,7 @@ async function recompute(eventId: string): Promise<void> {
     roomOccupancy[r.id] = { capacity: r.get("capacity") ?? 0, occupied: r.get("occupied") ?? 0 };
   }
 
-  const outbox = db.collection(COL.outbox);
+  const outbox = db.collection(COL.outbox).where("eventId", "==", eventId);
   const tickets = db.collection(eventPath(eventId, "tickets"));
   const [queued, sent, failed, openTickets] = await Promise.all([
     count(outbox.where("status", "==", "queued")),

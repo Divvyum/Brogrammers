@@ -1,12 +1,18 @@
 import { z } from "zod";
 import {
   AudienceType,
+  Channel,
+  CertificateType,
+  ComplaintStatus,
   EligibilityResult,
   EventMode,
+  OutboxStatus,
   ParticipantStatus,
+  RewardStatus,
   StaffRole,
+  TaskStatus,
 } from "./enums.js";
-import { EligibilityRules } from "./schemas.js";
+import { EligibilityRules, RubricCriterion } from "./schemas.js";
 
 // Request bodies and queries for /api/admin/* (plan 4.6). Dates are ISO strings
 // over the wire; the server stores them as Firestore Timestamps and sends them
@@ -164,3 +170,148 @@ export const ResolveCheckinBody = z.object({
 // ---------- shared ----------
 
 export const AudienceBody = z.object({ type: AudienceType, ids: z.array(z.string()).default([]) });
+
+// ---------- D16 schedule ----------
+
+export const ScheduleBody = z
+  .object({
+    title: z.string().trim().min(1),
+    startAt: iso,
+    endAt: iso,
+    location: z.string().trim().optional(),
+    audience: AudienceBody,
+  })
+  .refine((s) => s.startAt < s.endAt, { message: "Must end after it starts", path: ["endAt"] });
+export type ScheduleBody = z.infer<typeof ScheduleBody>;
+
+// ---------- D17 problems ----------
+
+export const ProblemBody = z.object({
+  track: z.string().trim().min(1),
+  title: z.string().trim().min(1),
+  body: z.string().trim().min(1),
+  releaseAt: iso,
+});
+export type ProblemBody = z.infer<typeof ProblemBody>;
+
+// ---------- D18 announcements ----------
+
+export const AnnouncementBody = z.object({
+  title: z.string().trim().min(1).max(120),
+  body: z.string().trim().min(1).max(2000),
+  audience: AudienceBody,
+  emergency: z.boolean().default(false),
+});
+export type AnnouncementBody = z.infer<typeof AnnouncementBody>;
+
+export const AiDraftBody = z.object({
+  notes: z.string().trim().min(3).max(2000),
+  tone: z.enum(["friendly", "formal", "urgent"]).default("friendly"),
+});
+
+// ---------- D19 outbox ----------
+
+export const TemplateBody = z.object({ channel: Channel, body: z.string().min(1).max(1000) });
+export const OutboxQuery = PageQuery.extend({
+  status: OutboxStatus.optional(),
+  template: z.string().optional(),
+  uid: z.string().optional(),
+});
+
+// ---------- D20 mentors ----------
+
+export const MentorTracksBody = z.object({ tracks: z.array(z.string().min(1)) });
+export const MentorAvailabilityBody = z.object({
+  windows: z
+    .array(z.object({ startAt: iso, endAt: iso }).refine((w) => w.startAt < w.endAt, "Window must end after it starts"))
+    .min(1),
+  slotMinutes: z.number().int().min(5).max(120).default(15),
+});
+export const MentorNoteBody = z.object({ notes: z.string().trim().max(2000) });
+
+// ---------- D21 volunteer operations ----------
+
+export const TaskBody = z.object({
+  title: z.string().trim().min(1),
+  assignedTo: z.string().optional(),
+  shift: z.string().optional(),
+  dueAt: iso.optional(),
+});
+export const TaskUpdateBody = z.object({
+  status: TaskStatus.optional(),
+  assignedTo: z.string().optional(),
+  notes: z.string().optional(),
+});
+export const TicketAssignBody = z.object({ assignedTo: z.string().min(1) });
+export const TicketResolveBody = z.object({ resolution: z.string().trim().min(1) });
+export const MealsBody = z.object({
+  meals: z.array(z.object({ id: z.string().regex(/^[a-z0-9_-]+$/), name: z.string().min(1), startAt: iso, endAt: iso })),
+  counters: z.array(z.string().min(1)).default([]),
+});
+export const FoodScanBody = z.object({
+  token: z.string().min(10),
+  mealId: z.string().min(1),
+  counter: z.string().min(1),
+});
+
+// ---------- D22 judging setup ----------
+
+export const RubricBody = z
+  .object({ criteria: z.array(RubricCriterion).min(1) })
+  .refine((r) => r.criteria.reduce((t, c) => t + c.weight, 0) === 100, {
+    message: "Criteria weights must total 100",
+    path: ["criteria"],
+  })
+  .refine((r) => new Set(r.criteria.map((c) => c.id)).size === r.criteria.length, {
+    message: "Criterion IDs must be unique",
+    path: ["criteria"],
+  });
+export const JudgeAssignBody = z.object({ teamIds: z.array(z.string()) });
+export const AutoAssignBody = z.object({ judgesPerTeam: z.number().int().min(1).max(10).default(2) });
+
+// ---------- D23 submissions ----------
+
+export const SubmissionSettingsBody = z.object({
+  deadline: iso.optional(),
+  locked: z.boolean().optional(),
+});
+
+// ---------- D24 scoring ----------
+
+export const ScoreBody = z.object({
+  criteria: z.record(z.string(), z.number().min(0)),
+  comment: z.string().max(2000).optional(),
+  /** true submits and locks the score. */
+  submit: z.boolean().default(false),
+  /** Required when changing a locked score. */
+  reason: z.string().trim().min(3).optional(),
+  round: z.string().default("current"),
+});
+export type ScoreBody = z.infer<typeof ScoreBody>;
+export const VisibilityBody = z.object({ visible: z.boolean() });
+
+// ---------- D25 certificates ----------
+
+export const IssueCertificatesBody = z.object({
+  type: CertificateType,
+  /** Omit to issue to everyone who qualifies (checked in / top 3 teams / mentors). */
+  uids: z.array(z.string()).optional(),
+  /** Winner certificates: how many top teams. */
+  topTeams: z.number().int().min(1).max(10).default(3),
+});
+
+// ---------- D26 rewards, complaints, ratings ----------
+
+export const RewardBody = z.object({
+  prize: z.string().trim().min(1),
+  amount: z.number().min(0).optional(),
+  type: z.string().trim().min(1),
+  sponsor: z.string().trim().optional(),
+  winnerTeamId: z.string().optional(),
+  dueAt: iso,
+});
+export const RewardStatusBody = z.object({ status: RewardStatus, note: z.string().optional() });
+export const RewardProofBody = z.object({ proofUrl: z.url() });
+export const ComplaintRespondBody = z.object({ note: z.string().trim().min(1), status: ComplaintStatus.optional() });
+export const RatingResponseBody = z.object({ response: z.string().trim().min(1) });
+export const UploadSignatureBody = z.object({ folder: z.enum(["reward-proofs", "complaint-evidence"]) });

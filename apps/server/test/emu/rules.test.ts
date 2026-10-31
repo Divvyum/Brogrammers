@@ -66,6 +66,17 @@ beforeAll(async () => {
     await setDoc(doc(db, "outbox/m1"), { status: "queued" });
     await setDoc(doc(db, "users/p1"), { name: "P One", eventId: E });
     await setDoc(doc(db, "uniqueKeys/phone_x"), { uid: "p1" });
+    // D16–D26 collections
+    await setDoc(doc(db, `events/${E}/schedule/s1`), { title: "Opening" });
+    await setDoc(doc(db, `events/${E}/mentorSlots/ms1`), { mentorUid: "mentor1" });
+    await setDoc(doc(db, `events/${E}/mentorSlots/ms2`), { mentorUid: "mentor2" });
+    await setDoc(doc(db, `events/${E}/tasks/t1`), { assignedTo: "vol1" });
+    await setDoc(doc(db, `events/${E}/tasks/t2`), { assignedTo: "vol2" });
+    await setDoc(doc(db, `events/${E}/rubric/current`), { criteria: [] });
+    await setDoc(doc(db, `events/${E}/rewards/r1`), { prize: "x" });
+    await setDoc(doc(db, `events/${E}/food/p1_lunch`), { uid: "p1" });
+    await setDoc(doc(db, "templates/announcement"), { body: "x" });
+    await setDoc(doc(db, "certificates/ABCDEFGHJKLM"), { uid: "p1" });
   });
 });
 
@@ -191,5 +202,38 @@ describe("participant", () => {
     const db = as("p1", "participant");
     await assertFails(setDoc(doc(db, `events/${E}/checkins/c9`), checkin("p1")));
     await assertFails(getDoc(doc(db, "outbox/m1")));
+  });
+});
+
+describe("D29: collections added in D16–D26", () => {
+  it("mentors read only their own calendar", async () => {
+    const db = as("mentor1", "mentor");
+    await assertSucceeds(getDoc(doc(db, `events/${E}/mentorSlots/ms1`)));
+    await assertFails(getDoc(doc(db, `events/${E}/mentorSlots/ms2`)));
+    await assertFails(setDoc(doc(db, `events/${E}/mentorSlots/ms1`), { mentorUid: "mentor1", notes: "x" }));
+  });
+
+  it("volunteers read only their own tasks, and nothing about food claims or rewards", async () => {
+    const db = as("vol1", "volunteer");
+    await assertSucceeds(getDoc(doc(db, `events/${E}/tasks/t1`)));
+    await assertFails(getDoc(doc(db, `events/${E}/tasks/t2`)));
+    await assertFails(getDoc(doc(db, `events/${E}/food/p1_lunch`)));
+    await assertFails(setDoc(doc(db, `events/${E}/food/p2_lunch`), { uid: "p2" }));
+    await assertFails(getDoc(doc(db, `events/${E}/rewards/r1`)));
+  });
+
+  it("participants see the schedule but not the rubric, rewards or templates", async () => {
+    const db = as("p1", "participant");
+    await assertSucceeds(getDoc(doc(db, `events/${E}/schedule/s1`)));
+    await assertFails(getDoc(doc(db, `events/${E}/rubric/current`)));
+    await assertFails(getDoc(doc(db, `events/${E}/rewards/r1`)));
+    await assertFails(getDoc(doc(db, "templates/announcement")));
+  });
+
+  it("judges read the rubric; templates and certificates are off-limits to clients", async () => {
+    await assertSucceeds(getDoc(doc(as("judge1", "judge"), `events/${E}/rubric/current`)));
+    await assertSucceeds(getDoc(doc(as("org1", "organizer"), "templates/announcement")));
+    await assertFails(setDoc(doc(as("org1", "organizer"), "templates/announcement"), { body: "hacked" }));
+    await assertFails(getDoc(doc(as("p1", "participant"), "certificates/ABCDEFGHJKLM")));
   });
 });

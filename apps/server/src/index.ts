@@ -1,6 +1,7 @@
 import { createApp } from "./app.js";
 import { env } from "./core/env.js";
 import { stats } from "./core/stats.js";
+import { ensureDefaultTemplates } from "./core/templates.js";
 import { startJobs } from "./jobs/index.js";
 
 const app = createApp();
@@ -11,6 +12,9 @@ const server = app.listen(env.port, () => {
 });
 
 const stopJobs = env.jobsDisabled ? () => {} : startJobs();
+ensureDefaultTemplates()
+  .then((n) => n && console.log(`[templates] created ${n} default message templates`))
+  .catch((e) => console.error("[templates] could not create defaults", e));
 
 async function shutdown() {
   stopJobs();

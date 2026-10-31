@@ -1,0 +1,54 @@
+# HACKOS on one VPS (plan D30). Caddy gets HTTPS certificates automatically,
+# which the scanner needs (camera and service workers only work on HTTPS).
+#
+# Replace the two domains, point both DNS A records at the VPS, then:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+
+admin.example.com {
+	encode zstd gzip
+
+	# API → Node server on this machine
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Admin portal (Vite build). Unknown paths fall back to index.html for the router.
+	handle {
+		root * /opt/hackos/apps/admin/dist
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+	}
+	# The service worker must never be cached, or offline updates get stuck.
+	@sw path /sw.js /registerSW.js
+	header @sw Cache-Control "no-cache"
+}
+
+app.example.com {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	handle {
+		root * /opt/hackos/apps/participant/dist
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+	}
+	@sw path /sw.js /registerSW.js
+	header @sw Cache-Control "no-cache"
+}
