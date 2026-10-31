@@ -7,6 +7,18 @@
   "background_color": "#f4f6f2",
   "theme_color": "#1f6a4b",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "scope": "/",
+  "shortcuts": [
+    {
+      "name": "Gate scanner",
+      "url": "/scan"
+    }
   ]
 }

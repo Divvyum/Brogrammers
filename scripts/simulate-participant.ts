@@ -20,6 +20,7 @@ import { b64u, Challenge, challengeMessage, type ChallengeResponse, type SignedC
 import { completeEnrollment } from "../apps/server/src/admin/digital-id/credentials.js";
 import { col } from "../apps/server/src/core/events.js";
 import { db } from "../apps/server/src/core/firebase.js";
+import { stats } from "../apps/server/src/core/stats.js";
 
 const dir = fileURLToPath(new URL("./.sim/", import.meta.url));
 const devicesFile = `${dir}devices.json`;
@@ -79,6 +80,7 @@ async function enroll() {
     console.log(`Enrolled ${p.id} ${p.get("name")} (backup code ${backupCode})`);
   }
   saveDevices(devices);
+  await stats.recompute(eventId); // the dashboard's "enrolled" count
 }
 
 async function respond() {

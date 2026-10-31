@@ -171,6 +171,19 @@ export const ResolveCheckinBody = z.object({
 
 export const AudienceBody = z.object({ type: AudienceType, ids: z.array(z.string()).default([]) });
 
+// ---------- A26 audit log ----------
+
+export const AuditQuery = PageQuery.extend({
+  actor: z.string().optional(),
+  action: z.string().optional(),
+  target: z.string().optional(),
+  from: iso.optional(),
+  to: iso.optional(),
+});
+
+/** Body for the two "who will be notified" previews. */
+export const AudiencePreviewBody = z.object({ audience: AudienceBody });
+
 // ---------- D16 schedule ----------
 
 export const ScheduleBody = z

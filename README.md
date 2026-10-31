@@ -37,6 +37,7 @@ Divyam's machine already has the server keys. Teammates get `apps/server/.env` f
 | `pnpm dev` | Emulators + server + both apps |
 | `pnpm emulators` | Emulators only |
 | `pnpm test` | Unit tests |
+| `pnpm test:e2e` | Browser tests of the admin portal (needs `pnpm dev`, `pnpm seed --pipeline` and `pnpm simulate enroll` first; one-time `npx playwright install chromium`) |
 | `pnpm test:emu` | Integration tests against the emulators (starts them itself; stop `pnpm dev` first) |
 | `pnpm seed [--pipeline]` | Wipe the emulators and load demo data (`--pipeline` also runs duplicates, eligibility and allotment) |
 | `pnpm simulate enroll\|respond\|list` | Fake participant devices for testing the scanner |

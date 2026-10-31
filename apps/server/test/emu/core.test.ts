@@ -82,3 +82,25 @@ describe("D6: event setup", () => {
     expect(bad.status).toBe(409);
   });
 });
+
+describe("A26: audit log listing", () => {
+  it("lists entries newest first with filters, for organizers only", async () => {
+    const created = await api().post("/api/admin/events").set(bearer(superToken)).send(eventBody());
+    const eventId = created.body.id as string;
+    const org = await tokenFor("org-audit", { role: "organizer", eventId });
+    await api().patch(`/api/admin/events/${eventId}`).set(bearer(org)).send({ teamMax: 6 });
+    await api().patch(`/api/admin/events/${eventId}`).set(bearer(org)).send({ teamMax: 7 });
+
+    const all = await api().get(`/api/admin/events/${eventId}/audit`).set(bearer(org));
+    expect(all.status).toBe(200);
+    expect(all.body.items.map((a: { action: string }) => a.action)).toEqual(["event.update", "event.update", "event.create"]);
+
+    const updates = await api().get(`/api/admin/events/${eventId}/audit?action=event.update&limit=1`).set(bearer(org));
+    expect(updates.body.items).toHaveLength(1);
+    expect(updates.body.items[0].after).toEqual({ teamMax: 7 });
+    expect(updates.body.next).toBeTruthy();
+
+    const vol = await tokenFor("vol-audit", { role: "volunteer", eventId });
+    expect((await api().get(`/api/admin/events/${eventId}/audit`).set(bearer(vol))).status).toBe(403);
+  });
+});

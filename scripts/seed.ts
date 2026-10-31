@@ -8,6 +8,7 @@ import { detectDuplicates } from "../apps/server/src/admin/registrations/duplica
 import { runEligibility } from "../apps/server/src/admin/eligibility/engine.js";
 import { runAllotment } from "../apps/server/src/admin/allotment/allotment.service.js";
 import { env } from "../apps/server/src/core/env.js";
+import { stats } from "../apps/server/src/core/stats.js";
 import { resetEmulators, seed } from "./lib/seed-data.js";
 
 if (!env.usingEmulators) {
@@ -32,6 +33,8 @@ if (process.argv.includes("--pipeline")) {
   console.log(`Duplicates found: ${dups}`);
   console.log(`Eligibility: ${elig.eligible} eligible, ${elig.flagged} flagged, ${elig.rejected} rejected`);
   console.log(`Allotment: ${allot.assigned} seated, ${allot.unassigned.length} unplaced groups, ${allot.capacityViolations} capacity violations`);
+  // The pipeline schedules a debounced recount; this script exits first, so recount now.
+  await stats.recompute(s.eventId);
 }
 
 console.log(`\nStaff logins (password for all: ${s.password}):`);
