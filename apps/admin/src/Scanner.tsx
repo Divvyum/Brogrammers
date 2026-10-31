@@ -4,7 +4,8 @@ import { auth, db } from "./firebase";
 import { backupCodeHash, CHAIN_GENESIS, computeEntryHash } from "@hackos/shared/crypto";
 
 type Entry = { participantId:string; name:string; teamName?:string|null; roomId?:string|null; seat?:string|null; backupCodeHash:string; checkedInAt?:unknown };
-type Api = (path:string, options?:RequestInit)=>Promise<any>;
+type RosterDelta = { rosterVersion: number; participants?: Entry[]; removed?: string[] };
+type Api = (path:string, options?:RequestInit)=>Promise<RosterDelta>;
 export function Scanner({eventId,api}:{eventId:string;api:Api}) {
   const rosterKey=`hackos-roster-${eventId}`;
   const [roster,setRoster]=useState<Entry[]>(()=>JSON.parse(localStorage.getItem(rosterKey)||"[]"));
