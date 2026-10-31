@@ -189,6 +189,137 @@ device's own fields.
 | GET | `stats` | O | Same as the `events/{id}/stats/live` document (listen to that for live updates). |
 | POST | `stats/recompute` | O | Full recount. Also runs nightly at 03:00 IST. |
 
+**Schedule (D16)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `schedule` | O, V, M, J | |
+| POST | `schedule` | O | `{ title, startAt, endAt, location?, audience: { type: all\|track\|room\|team\|role, ids } }` → `{ id, notified }` |
+| PATCH | `schedule/:id` | O | Same body. Notifies the old **and** new audience. |
+| DELETE | `schedule/:id` | O | Sends a cancellation. |
+| POST | `schedule/preview-audience` | O | `{ audience }` → `{ count }` for the "who will be notified" preview. |
+
+**Problem statements (D17)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `problems` | O, M, J | |
+| POST/PATCH | `problems`, `problems/:id` | O | `{ track, title, body, releaseAt }`. After release only title/body can change. |
+| DELETE | `problems/:id` | O | Not after release. |
+| POST | `problems/:id/release` | O | Release now. Otherwise a cron job releases at `releaseAt` and notifies the track. |
+
+**Announcements (D18)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `announcements` | O | Newest first, with `recipients`, `seenCount`, `seenPct`. |
+| POST | `announcements` | O | `{ title, body, audience, emergency }` → `{ id, recipients, queued, pushed }`. Emergency = priority 0. Also pushes FCM topics `all`, `track_X`, `room_X`, `team_X`, `role_X`. |
+| POST | `announcements/preview-audience` | O | `{ audience }` → `{ count }` |
+| POST | `announcements/ai-draft` | O | `{ notes, tone: friendly\|formal\|urgent }` → `{ title, body }`. Can take ~20 s when Gemini is busy. |
+
+**Outbox / WhatsApp dashboard (D19)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `outbox/status` | O | `{ connection, counts: { queued, sending, sent, failed } }`. `connection.waitingForWorker` until Phase 2. |
+| GET | `outbox/messages` | O | Filters `status`, `template`, `uid`; paginated, newest first. |
+| POST | `outbox/:id/retry` | O | Failed → queued. |
+| GET | `/api/admin/templates` | O | All templates, with `isDefault`. |
+| PUT | `/api/admin/templates/:id` | O | `{ channel, body }` |
+| POST | `/api/admin/templates/defaults` | O | Creates missing defaults (also done at server start). |
+
+**Mentors (D20)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `mentors` | O | With `tracks`, `slots`, `booked`. |
+| PUT | `mentors/:uid/tracks` | O | `{ tracks }` |
+| POST | `mentors/:uid/availability` | O, the mentor | `{ windows: [{ startAt, endAt }], slotMinutes = 15 }` → `{ created }` (re-sending creates no duplicates). |
+| GET | `mentor-slots?mentorUid=&status=` | O, M (own only) | Time order. |
+| PATCH | `mentor-slots/:id/notes` | O, the mentor | `{ notes }` |
+| GET | `teams/:teamId/progress` | O, M | `{ progress, mentorNotes }` |
+
+**Volunteer operations (D21)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `tasks` | O (all), V (own) | |
+| POST | `tasks` | O | `{ title, assignedTo?, shift?, dueAt? }`. One WhatsApp reminder 30 min before `dueAt`. |
+| PATCH | `tasks/:id` | O; V own (status/notes) | |
+| GET | `tickets?status=` | O, V | |
+| POST | `tickets/:id/assign` | O; V (claim for self) | `{ assignedTo }` |
+| POST | `tickets/:id/resolve` | O; V (if claimed) | `{ resolution }` |
+| GET/PUT | `food/config` | GET O, V; PUT O | `{ meals: [{ id, name, startAt, endAt }], counters }` |
+| POST | `food/scan` | V, O | `{ token, mealId, counter }` → `{ ok, name, meal }`. 409 `ALREADY_CLAIMED` (with `details.claimedAt/counter`), 409 `MEAL_NOT_ACTIVE`, 400 `BAD_FOOD_PASS`. |
+| GET | `food/stats` | O | Claims per meal. |
+
+**Judging (D22, D24)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET/PUT | `rubric/:round` | GET O, J; PUT O | `{ criteria: [{ id, name, weight, max }] }`, weights total 100. Frozen once a score in that round is locked. Default round: `current`. |
+| GET | `judges` | O | With `teamIds`. |
+| PUT | `judges/:uid/assignments` | O | `{ teamIds }` |
+| POST | `judges/auto-assign` | O | `{ judgesPerTeam = 2 }` → `{ loads }` (balanced within one team). |
+| GET | `scores?round=` | O (all), J (own) | |
+| PUT | `scores/:teamId` | J (assigned teams); O with `?judgeUid=` | `{ criteria, comment?, submit, reason?, round }` → `{ total, locked }`. `submit: true` locks. Changing a locked score needs `reason` (audited). |
+| GET | `leaderboard` | O, J | `{ teams: [{ rank, teamId, teamName, total, breakdown, judges }], outlierJudges, consistency }` |
+| POST | `leaderboard/recompute` | O | Also recomputed whenever a score locks. |
+| GET | `judging/consistency` | O | Per judge: `average`, `count`, `z`; outliers at \|z\| ≥ 1.5. |
+| POST | `results/visibility` | O | `{ visible }` |
+| POST | `results/publish` | O | Makes the leaderboard visible and notifies everyone. |
+
+**Submissions (D23)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| PUT | `submissions/settings` | O | `{ deadline?, locked? }` |
+| GET | `submissions` | O; J (assigned) | Summary list (GitHub counts only). |
+| GET | `submissions/:teamId` | O; J (assigned) | Full record with `github.timeline`, `contributors`, `flags`, `outsiders`, `readme`, and `versions`. |
+| POST | `submissions/:teamId/github/refresh` | O; J (assigned) | At most once per 10 min per repo (429 otherwise). |
+| POST | `submissions/:teamId/ai-summary` | O | → `{ aiSummary }` |
+
+**Certificates (D25)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `certificates` | O | |
+| POST | `certificates/issue` | O | `{ type: participation\|winner\|mentor, uids?, topTeams = 3 }`. Participation = checked-in people; winner = top teams' members; never issued twice. |
+| GET | `/api/public/certificates/:id` | public | `{ valid, type, name, eventName, rank, teamName, issuedAt }` |
+| GET | `/api/public/certificates/:id/pdf` | public | The PDF, generated on demand. |
+
+**RewardLink, complaints, ratings (D26)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET/POST | `rewards` | O | `{ prize, amount?, type, sponsor?, winnerTeamId?, dueAt }` |
+| PATCH | `rewards/:id` | O | Any subset; a new future `dueAt` clears `overdue`. |
+| POST | `rewards/:id/status` | O | `{ status, note? }`. Announced → Verified → Processing → Delivered; Disputed from any; Delivered needs proof. |
+| POST | `uploads/sign` | O | `{ folder: reward-proofs\|complaint-evidence }` → Cloudinary signed-upload params. |
+| POST | `rewards/:id/proof` | O | `{ proofUrl }` — must be on our Cloudinary account. |
+| GET | `complaints?status=` | O | |
+| POST | `complaints/:id/respond` | O | `{ note, status? }`. Cron escalates unresolved complaints past `deadline`. |
+| GET | `ratings` | O | `{ count, averages, items }` |
+| POST | `ratings/:uid/response` | O | `{ response }` |
+
+**Exports and analytics (D27, D28)**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `exports/{attendance,teams,eligibility,checkins,scores,leaderboard,rewards,audit}.csv` | O | UTF-8 with BOM, CRLF — opens directly in Excel. |
+| GET | `exports/summary.pdf` | O | One-page event summary. |
+| GET | `analytics` | O | `funnel`, `statusCounts`, `attendanceBySlot`, `attendanceRate`, `noShowRate`, `whatsappDeliveryRate`, `averageJudgeSpread`, `ratings`. |
+
+### Cron jobs (server)
+
+| Every | Job |
+|---|---|
+| 10 s | live stats flush |
+| 1 min | team lock at deadline, replacement invite expiry, waitlist offer expiry, problem release, task reminders, announcement seen counts |
+| 5 min | room rebalance after each slot |
+| 10 min | overdue rewards, complaint escalation |
+| 03:00 IST | full stats recount |
+
 ---
 
 ## For Manthan (Phase 2)
@@ -206,7 +337,10 @@ Server functions to call from `/api/p/*` instead of re-implementing them:
 | Duplicates after registration | `detectDuplicates(eventId)` in `admin/registrations/duplicates.ts` |
 | Queue a message | `enqueue({ channel, uid, template, vars, dedupeKey, eventId })` in `core/outbox.ts` |
 | Phone/email storage and lookup | `encrypt`, `decrypt`, `hashPhone`, `hashEmail` in `core/crypto.ts` |
+| Food pass QR | `issueFoodPass(eventId, uid)` in `core/foodpass.ts` (valid 15 min) |
+| Signed Cloudinary uploads (photos, PPT/PDF, evidence) | `signUpload(folder, eventId)`, `isOurCloudinaryUrl` in `core/cloudinary.ts` |
+| GitHub insights after a submission | `refreshGithub(eventId, teamId, true)` in `admin/submissions/routes.ts` |
+| Render a message for sending | `render(body, vars)` in `core/templates.ts` |
+| Rate-limit OTP and enroll routes | `strictLimiter` in `core/rateLimit.ts` (10 per 15 min per IP) |
 
-Outbox templates queued so far: `eligibility_eligible`, `eligibility_flagged`,
-`eligibility_rejected`, `team_locked`, `replacement_invite`, `waitlist_offer`,
-`replacement_accepted`, `replacement_approved`, `enrollment_link`, `checkin_welcome`.
+All outbox templates and their default text: `DEFAULT_TEMPLATES` in `core/templates.ts`.

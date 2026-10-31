@@ -12,7 +12,8 @@ packages/shared     Types, zod schemas, enums, crypto (used by all three apps)
 packages/ui         Shared React components and design tokens
 firebase/           Firestore rules and indexes
 scripts/            Seed and simulation scripts
-docs/               Build plan, API.md, DATA.md
+docs/               Build plan, API.md (routes), DATA.md (collections, frozen)
+deploy/             VPS deployment: Caddyfile, systemd unit, step-by-step guide
 ```
 
 ## First-time setup

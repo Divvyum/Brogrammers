@@ -84,6 +84,14 @@ export const AudienceType = z.enum(["all", "track", "room", "team", "role"]);
 export type AudienceType = z.infer<typeof AudienceType>;
 
 export const MentorSlotStatus = z.enum(["open", "booked", "done", "cancelled"]);
+/** Allowed reward status changes (plan D26). */
+export const REWARD_TRANSITIONS: Record<string, readonly string[]> = {
+  announced: ["verified", "disputed"],
+  verified: ["processing", "disputed"],
+  processing: ["delivered", "disputed"],
+  disputed: ["processing", "verified"],
+  delivered: ["disputed"],
+};
 export const TicketStatus = z.enum(["open", "assigned", "resolved"]);
 export const TaskStatus = z.enum(["todo", "in_progress", "done"]);
 export const CertificateType = z.enum(["participation", "winner", "mentor"]);

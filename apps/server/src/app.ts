@@ -2,13 +2,25 @@ import cors from "cors";
 import express, { Router } from "express";
 import helmet from "helmet";
 import { allotmentRouter } from "./admin/allotment/routes.js";
+import { analyticsRouter } from "./admin/analytics/routes.js";
+import { announcementsRouter } from "./admin/announcements/routes.js";
+import { certificatesRouter, publicCertificatesRouter } from "./admin/certificates/routes.js";
 import { checkinsRouter } from "./admin/checkins/routes.js";
 import { digitalIdRouter } from "./admin/digital-id/routes.js";
 import { eventsRouter } from "./admin/events/routes.js";
+import { exportsRouter } from "./admin/exports/routes.js";
+import { judgingRouter } from "./admin/judging/routes.js";
+import { mentorsRouter } from "./admin/mentors/routes.js";
+import { opsRouter } from "./admin/ops/routes.js";
+import { outboxRouter, templatesRouter } from "./admin/outbox/routes.js";
+import { problemsRouter } from "./admin/problems/routes.js";
 import { registrationsRouter } from "./admin/registrations/routes.js";
 import { replacementRouter } from "./admin/replacement/routes.js";
+import { rewardsRouter } from "./admin/rewards/routes.js";
+import { scheduleRouter } from "./admin/schedule/routes.js";
 import { staffRouter, volunteerLoginRouter } from "./admin/staff/routes.js";
 import { statsRouter } from "./admin/stats/routes.js";
+import { submissionsRouter } from "./admin/submissions/routes.js";
 import { teamsRouter } from "./admin/teams/routes.js";
 import { appCheck, requireAuth, requireEventAccess } from "./core/auth.js";
 import { env } from "./core/env.js";
@@ -36,6 +48,7 @@ export function createApp() {
     }
     res.json({ status: "ok", firestore, emulators: env.usingEmulators });
   });
+  app.use("/api/public/certificates", publicCertificatesRouter);
 
   // ---------- admin ----------
   const admin = Router();
@@ -44,6 +57,7 @@ export function createApp() {
   admin.use(requireAuth);
   admin.use("/staff", staffRouter);
   admin.use("/events", eventsRouter);
+  admin.use("/templates", templatesRouter);
 
   const perEvent = Router({ mergeParams: true });
   perEvent.use(requireEventAccess);
@@ -55,6 +69,18 @@ export function createApp() {
     digitalIdRouter,
     checkinsRouter,
     statsRouter,
+    scheduleRouter,
+    problemsRouter,
+    announcementsRouter,
+    outboxRouter,
+    mentorsRouter,
+    opsRouter,
+    judgingRouter,
+    submissionsRouter,
+    certificatesRouter,
+    rewardsRouter,
+    exportsRouter,
+    analyticsRouter,
   ]) {
     perEvent.use(r);
   }

@@ -69,6 +69,8 @@ export const User = z.object({
   disabled: z.boolean().optional(),
   /** Doc ID of the volunteer's current PIN in events/{id}/volunteerPins. */
   pinKey: z.string().optional(),
+  /** Mentors: the tracks they cover (plan D20). */
+  mentorTracks: z.array(z.string()).optional(),
 });
 export type User = z.infer<typeof User>;
 
@@ -78,6 +80,8 @@ export type UniqueKey = z.infer<typeof UniqueKey>;
 
 /** Outbox message (plan 4.4). Doc ID is deterministic: `${reason}_${refId}_${uid}`. */
 export const OutboxMessage = z.object({
+  /** Event the message belongs to (dashboard filters and per-event counts). */
+  eventId: id.optional(),
   channel: Channel,
   to: z.object({ uid: id }),
   template: z.string(),
@@ -119,6 +123,13 @@ export const Certificate = z.object({
   eventId: id,
   type: CertificateType,
   issuedAt: FirestoreTimestamp,
+  /** Printed on the PDF; copied so verification needs no other reads. */
+  name: z.string(),
+  eventName: z.string(),
+  /** Winner certificates: final rank and team name. */
+  rank: z.number().int().optional(),
+  teamName: z.string().optional(),
+  revoked: z.boolean().optional(),
 });
 export type Certificate = z.infer<typeof Certificate>;
 
@@ -154,6 +165,14 @@ export const Event = z.object({
   rosterVersion: z.number().int(),
   /** Set when the team-lock job has run. */
   teamsLockedAt: FirestoreTimestamp.optional(),
+  /** Submissions are refused once this is true (or after deadlines.submission). */
+  submissionsLocked: z.boolean().optional(),
+  resultsPublishedAt: FirestoreTimestamp.optional(),
+  /** Meals for the food counter (plan D21). */
+  meals: z
+    .array(z.object({ id, name: z.string(), startAt: FirestoreTimestamp, endAt: FirestoreTimestamp }))
+    .optional(),
+  counters: z.array(z.string()).optional(),
 });
 export type Event = z.infer<typeof Event>;
 
@@ -329,6 +348,7 @@ export const ScheduleItem = z.object({
   endAt: FirestoreTimestamp,
   location: z.string().optional(),
   audience: Audience,
+  updatedAt: FirestoreTimestamp.optional(),
 });
 export type ScheduleItem = z.infer<typeof ScheduleItem>;
 
@@ -349,6 +369,8 @@ export const Announcement = z.object({
   createdBy: id,
   sentAt: FirestoreTimestamp.optional(),
   seenCount: z.number().int(),
+  /** How many people the announcement was queued for. */
+  recipients: z.number().int().optional(),
 });
 export type Announcement = z.infer<typeof Announcement>;
 
@@ -357,6 +379,8 @@ export const AnnouncementSeen = z.object({ seenAt: FirestoreTimestamp });
 export const MentorSlot = z.object({
   mentorUid: id,
   startAt: FirestoreTimestamp,
+  endAt: FirestoreTimestamp,
+  track: z.string().optional(),
   teamId: id.optional(),
   status: MentorSlotStatus,
   notes: z.string().optional(),
@@ -372,6 +396,9 @@ export const Ticket = z.object({
   text: z.string(),
   assignedTo: id.optional(),
   status: TicketStatus,
+  createdAt: FirestoreTimestamp,
+  resolvedAt: FirestoreTimestamp.optional(),
+  resolution: z.string().optional(),
 });
 export type Ticket = z.infer<typeof Ticket>;
 
@@ -381,11 +408,20 @@ export const Task = z.object({
   shift: z.string().optional(),
   dueAt: FirestoreTimestamp.optional(),
   status: TaskStatus,
+  notes: z.string().optional(),
+  /** Set when the reminder was queued, so it's sent once. */
+  remindedAt: FirestoreTimestamp.optional(),
 });
 export type Task = z.infer<typeof Task>;
 
 /** Doc ID is `${uid}_${mealId}`, so a second claim of the same meal fails to create. */
-export const FoodClaim = z.object({ claimedAt: FirestoreTimestamp, counter: z.string() });
+export const FoodClaim = z.object({
+  uid: id,
+  mealId: id,
+  claimedAt: FirestoreTimestamp,
+  counter: z.string(),
+  volunteerUid: id,
+});
 export type FoodClaim = z.infer<typeof FoodClaim>;
 
 export const TravelPlan = z.object({
@@ -423,10 +459,34 @@ export type Rubric = z.infer<typeof Rubric>;
 export const JudgeAssignment = z.object({ teamIds: z.array(id) });
 export type JudgeAssignment = z.infer<typeof JudgeAssignment>;
 
+export const CommitFlagReason = z.enum(["before_start", "after_deadline"]);
 export const GithubInsights = z.object({
+  repo: z.string(), // "owner/name"
   commits: z.number().int(),
-  contributors: z.array(z.object({ login: z.string(), commits: z.number().int(), uid: id.optional() })),
-  flags: z.array(z.object({ sha: z.string(), reason: z.enum(["before_start", "after_deadline"]) })),
+  /** Newest first, at most 300. */
+  timeline: z.array(
+    z.object({
+      sha: z.string(),
+      date: z.string(), // ISO
+      author: z.string(), // GitHub login, or the git author name if unlinked
+      message: z.string(),
+      uid: id.optional(), // team member matched by githubUsername
+      flag: CommitFlagReason.optional(),
+    }),
+  ),
+  contributors: z.array(
+    z.object({
+      login: z.string(),
+      commits: z.number().int(),
+      additions: z.number().int().optional(),
+      deletions: z.number().int().optional(),
+      uid: id.optional(),
+    }),
+  ),
+  flags: z.array(z.object({ sha: z.string(), reason: CommitFlagReason })),
+  /** Commit authors not matched to any team member. */
+  outsiders: z.array(z.string()),
+  readme: z.string().optional(), // first 20 KB
   fetchedAt: FirestoreTimestamp.optional(),
 });
 export type GithubInsights = z.infer<typeof GithubInsights>;
@@ -440,12 +500,17 @@ export const Submission = z.object({
   version: z.number().int().min(1),
   receiptId: z.string(),
   github: GithubInsights.optional(),
+  githubError: z.string().optional(),
+  description: z.string().optional(),
   aiSummary: z.string().optional(),
 });
 export type Submission = z.infer<typeof Submission>;
 
 /** Doc ID is `${judgeUid}_${teamId}`. */
 export const Score = z.object({
+  judgeUid: id,
+  teamId: id,
+  round: z.string(),
   criteria: z.record(z.string(), z.number()),
   total: z.number(),
   comment: z.string().optional(),
@@ -459,11 +524,15 @@ export const Leaderboard = z.object({
   teams: z.array(
     z.object({
       teamId: id,
+      teamName: z.string(),
       rank: z.number().int(),
       total: z.number(),
       breakdown: z.record(z.string(), z.number()),
+      judges: z.number().int(),
     }),
   ),
+  /** Judges whose average is far from the panel's (|z| ≥ 1.5). */
+  outlierJudges: z.array(z.object({ judgeUid: id, average: z.number(), z: z.number() })).default([]),
   computedAt: FirestoreTimestamp,
 });
 export type Leaderboard = z.infer<typeof Leaderboard>;
@@ -478,6 +547,9 @@ export const Reward = z.object({
   status: RewardStatus,
   proofUrl: url.optional(),
   confirmedAt: FirestoreTimestamp.optional(),
+  /** Set by the overdue job when dueAt passes before delivery. */
+  overdue: z.boolean().optional(),
+  history: z.array(z.object({ at: FirestoreTimestamp, by: id, status: RewardStatus, note: z.string().optional() })).default([]),
 });
 export type Reward = z.infer<typeof Reward>;
 
@@ -489,6 +561,8 @@ export const Complaint = z.object({
   status: ComplaintStatus,
   deadline: FirestoreTimestamp,
   history: z.array(z.object({ at: FirestoreTimestamp, by: id, note: z.string() })).default([]),
+  createdAt: FirestoreTimestamp,
+  escalatedAt: FirestoreTimestamp.optional(),
 });
 export type Complaint = z.infer<typeof Complaint>;
 
@@ -504,6 +578,7 @@ export const Rating = z.object({
   }),
   text: z.string().optional(),
   response: z.string().optional(),
+  respondedBy: id.optional(),
 });
 export type Rating = z.infer<typeof Rating>;
 

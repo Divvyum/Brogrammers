@@ -287,7 +287,7 @@ describe("D15: live stats", () => {
     }
     const rooms = await col(E, "rooms").get();
     for (const r of rooms.docs) expect(live.roomOccupancy[r.id]).toEqual({ capacity: r.get("capacity"), occupied: r.get("occupied") });
-    const queued = (await db.collection(COL.outbox).where("status", "==", "queued").count().get()).data().count;
+    const queued = (await db.collection(COL.outbox).where("eventId", "==", E).where("status", "==", "queued").count().get()).data().count;
     expect(live.outbox.queued).toBe(queued);
   });
 

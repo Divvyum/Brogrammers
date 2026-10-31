@@ -3,6 +3,7 @@ import { COL, DOC, eventPath } from "@hackos/shared";
 import { encrypt, hashEmail, hashPhone, lookupHash, normalizeEmail, normalizePhone } from "../../apps/server/src/core/crypto.js";
 import { auth, db } from "../../apps/server/src/core/firebase.js";
 import { stats } from "../../apps/server/src/core/stats.js";
+import { seedExtras } from "./seed-extras.js";
 
 // Realistic seed data for the emulator (plan D7): 1 event, 200 participants
 // (with planted duplicates and ineligible people), 50 teams, 10 rooms,
@@ -71,6 +72,8 @@ export interface SeedSummary {
   ineligible: { uid: string; why: string }[];
   staff: { role: string; email: string; uid: string; pin?: string }[];
   password: string;
+  /** The judge who scores 3 points lower than everyone else (D24 outlier). */
+  harshJudge: string;
 }
 
 /** Wipes the emulators. Refuses to touch a real project. */
@@ -334,14 +337,6 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
   });
   for (const { ref, doc } of slotDocs) w.set(ref, { ...doc, booked: booked.get(ref.id) ?? 0 });
 
-  // ---------- judging ----------
-  judges.forEach((uid, j) => {
-    w.set(db.collection(eventPath(eventId, "judgeAssignments")).doc(uid), {
-      teamIds: teamIds.filter((_, t) => t % judges.length === j),
-    });
-  });
-  void mentors;
-
   PUBLIC_REPOS.forEach((repoUrl, t) => {
     const teamId = teamIds[t]!;
     const sub = {
@@ -356,6 +351,18 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
   });
 
   await w.close();
+  const { harshJudge } = await seedExtras({
+    eventId,
+    startAt,
+    tracks: SEED_TRACKS,
+    teamIds,
+    teamTracks,
+    mentors,
+    judges,
+    volunteers: staff.filter((x) => x.role === "volunteer").map((x) => x.uid),
+    participants: all.map((p) => p.uid),
+    rnd: r.next,
+  });
   await stats.recompute(eventId);
 
   return {
@@ -367,5 +374,6 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     ineligible,
     staff,
     password: PASSWORD,
+    harshJudge,
   };
 }

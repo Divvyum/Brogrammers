@@ -22,6 +22,7 @@ export function outboxId(dedupeKey: string, uid: string): string {
 
 function outboxDoc(m: EnqueueInput) {
   return {
+    eventId: m.eventId,
     channel: m.channel,
     to: { uid: m.uid },
     template: m.template,
