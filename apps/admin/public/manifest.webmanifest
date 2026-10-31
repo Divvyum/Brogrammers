@@ -1,0 +1,12 @@
+{
+  "name": "HACKOS Admin",
+  "short_name": "HACKOS",
+  "description": "HACKOS event administration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f2",
+  "theme_color": "#1f6a4b",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
