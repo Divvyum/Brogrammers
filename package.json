@@ -1,17 +1,32 @@
 {
-  "name": "brogrammers",
+  "name": "hackos",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "firebase": "^13.1.0"
+    "dev": "concurrently -k -n emu,server,admin,app -c yellow,green,cyan,magenta \"pnpm emulators\" \"pnpm --filter @hackos/server dev\" \"pnpm --filter @hackos/admin dev\" \"pnpm --filter @hackos/participant dev\"",
+    "emulators": "firebase emulators:start --only auth,firestore --import=./firebase/emulator-data --export-on-exit",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "keys": "pnpm --filter @hackos/scripts keys",
+    "superadmin": "pnpm --filter @hackos/scripts superadmin",
+    "seed": "pnpm --filter @hackos/scripts seed",
+    "simulate": "pnpm --filter @hackos/scripts simulate",
+    "test:emu": "firebase emulators:exec --only auth,firestore \"pnpm --filter @hackos/server test:emu\""
   },
   "devDependencies": {
-    "vite": "^8.3.5"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "firebase-tools": "^15.34.2",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
   }
 }

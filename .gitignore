@@ -32,3 +32,9 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Firebase emulator data snapshots
+firebase/emulator-data/
+
+# Simulator device keys (scripts/simulate-participant.ts)
+scripts/.sim/

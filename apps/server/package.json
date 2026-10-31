@@ -1,0 +1,35 @@
+{
+  "name": "@hackos/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "test:emu": "vitest run --config vitest.emu.config.ts"
+  },
+  "dependencies": {
+    "@hackos/shared": "workspace:*",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.2",
+    "firebase-admin": "^14.5.0",
+    "helmet": "^8.3.0",
+    "node-cron": "^4.6.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/supertest": "^7.2.1",
+    "firebase": "^13.1.0",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.5"
+  }
+}

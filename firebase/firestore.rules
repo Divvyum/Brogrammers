@@ -1,0 +1,205 @@
+rules_version = '2';
+
+// HACKOS Firestore rules, v1 (plan D4).
+//
+// Roles come from custom claims set by the server: { role, eventId }. The super
+// admin has eventId "*". The server uses the Admin SDK, which bypasses these
+// rules, so every privileged write goes through the API. Clients only read,
+// except for the few direct writes allowed below (volunteer check-ins,
+// announcement seen receipts).
+//
+// Participant-side rules (own profile, team chat, circles, bookings) are added
+// by Manthan in Phase 2 (M19). Anything not matched here is denied.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function role() { return request.auth.token.role; }
+    function isSuper() { return signedIn() && role() == 'superadmin'; }
+    function inEvent(e) { return signedIn() && (isSuper() || request.auth.token.eventId == e); }
+    function hasRole(e, roles) { return inEvent(e) && (isSuper() || role() in roles); }
+    function isOrganizer(e) { return hasRole(e, ['organizer']); }
+    function isStaff(e) { return hasRole(e, ['organizer', 'volunteer', 'mentor', 'judge']); }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // A judge's assigned team IDs.
+    function judgeTeams(e) {
+      return get(/databases/$(database)/documents/events/$(e)/judgeAssignments/$(request.auth.uid)).data.teamIds;
+    }
+    function isAssignedJudge(e, teamId) {
+      return hasRole(e, ['judge']) && role() == 'judge' && teamId in judgeTeams(e);
+    }
+
+    // ---------- top level ----------
+
+    match /users/{uid} {
+      // Organizers see profiles through the API (contact details are encrypted anyway).
+      allow read: if isMe(uid) || isSuper()
+        || (signedIn() && role() == 'organizer' && resource.data.eventId == request.auth.token.eventId);
+      allow write: if false;
+    }
+
+    // Server-only collections.
+    match /uniqueKeys/{id} { allow read, write: if false; }
+    match /waSession/{id} { allow read, write: if false; }
+    match /inbox/{id} { allow read, write: if false; }
+
+    match /outbox/{id} {
+      allow read: if signedIn() && role() in ['superadmin', 'organizer'];
+      allow write: if false;
+    }
+    match /waStatus/{id} {
+      allow read: if signedIn() && role() in ['superadmin', 'organizer'];
+      allow write: if false;
+    }
+    match /templates/{id} {
+      allow read: if signedIn() && role() in ['superadmin', 'organizer'];
+      allow write: if false;
+    }
+    // Public verification goes through /api/public/certificates/:id.
+    match /certificates/{id} { allow read, write: if false; }
+
+    // ---------- events/{eventId} ----------
+
+    match /events/{e} {
+      allow read: if inEvent(e);
+      allow write: if false;
+
+      match /participants/{uid} {
+        allow read: if isOrganizer(e) || (inEvent(e) && isMe(uid));
+        allow write: if false;
+      }
+
+      match /teams/{teamId} {
+        allow read: if hasRole(e, ['organizer', 'mentor'])
+          || isAssignedJudge(e, teamId)
+          || (inEvent(e) && request.auth.uid in resource.data.memberUids);
+        allow write: if false;
+      }
+
+      match /teamChangeRequests/{id} {
+        allow read: if isOrganizer(e) || (inEvent(e) && resource.data.uid == request.auth.uid);
+        allow write: if false;
+      }
+
+      match /duplicates/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /replacements/{id} { allow read: if isOrganizer(e); allow write: if false; }
+
+      match /waitlist/{uid} {
+        allow read: if isOrganizer(e) || (inEvent(e) && isMe(uid));
+        allow write: if false;
+      }
+
+      // Slots, rooms, schedule: everyone in the event can see them.
+      match /slots/{id} { allow read: if inEvent(e); allow write: if false; }
+      match /rooms/{id} { allow read: if inEvent(e); allow write: if false; }
+      match /schedule/{id} { allow read: if inEvent(e); allow write: if false; }
+
+      match /problems/{id} {
+        allow read: if isStaff(e) || (inEvent(e) && resource.data.released == true);
+        allow write: if false;
+      }
+
+      match /announcements/{id} {
+        allow read: if inEvent(e);
+        allow write: if false;
+
+        // Participants mark an announcement seen; nothing else.
+        match /seen/{uid} {
+          allow read: if isOrganizer(e) || (inEvent(e) && isMe(uid));
+          allow create: if inEvent(e) && isMe(uid)
+            && request.resource.data.keys().hasOnly(['seenAt'])
+            && request.resource.data.seenAt == request.time;
+          allow update, delete: if false;
+        }
+      }
+
+      // Server-only.
+      match /enrollTokens/{id} { allow read, write: if false; }
+      match /volunteerPins/{id} { allow read, write: if false; }
+
+      // Volunteers create check-ins from the scanner (offline, synced later).
+      // They can't edit or delete them, can't mark them processed, and can only
+      // write as themselves.
+      match /checkins/{id} {
+        allow read: if isOrganizer(e)
+          || (hasRole(e, ['volunteer']) && resource.data.volunteerUid == request.auth.uid);
+        allow create: if hasRole(e, ['volunteer', 'organizer'])
+          && request.resource.data.volunteerUid == request.auth.uid
+          && request.resource.data.processed == false
+          && request.resource.data.flagged == false
+          && request.resource.data.keys().hasOnly([
+            'participantId', 'deviceId', 'volunteerUid', 'ts', 'method', 'result',
+            'rejectReason', 'overrideNote', 'prevHash', 'entryHash', 'processed', 'flagged'
+          ])
+          && request.resource.data.method in ['qr', 'manual', 'code']
+          && request.resource.data.result in ['valid', 'duplicate', 'rejected']
+          && request.resource.data.ts is string
+          && request.resource.data.prevHash is string
+          && request.resource.data.entryHash is string;
+        allow update, delete: if false;
+      }
+
+      // Dashboard counters and the leaderboard are written only by the server.
+      match /stats/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /leaderboard/{id} {
+        allow read: if hasRole(e, ['organizer', 'judge'])
+          || (inEvent(e) && get(/databases/$(database)/documents/events/$(e)).data.leaderboardVisible == true);
+        allow write: if false;
+      }
+
+      match /mentorSlots/{id} {
+        allow read: if isOrganizer(e) || (hasRole(e, ['mentor']) && resource.data.mentorUid == request.auth.uid);
+        allow write: if false;
+      }
+      match /progress/{id} { allow read: if hasRole(e, ['organizer', 'mentor']); allow write: if false; }
+
+      match /tickets/{id} {
+        allow read: if hasRole(e, ['organizer', 'volunteer']);
+        allow write: if false;
+      }
+      match /tasks/{id} {
+        allow read: if isOrganizer(e)
+          || (hasRole(e, ['volunteer']) && resource.data.assignedTo == request.auth.uid);
+        allow write: if false;
+      }
+      match /food/{id} { allow read: if isOrganizer(e); allow write: if false; }
+
+      match /rubric/{id} { allow read: if hasRole(e, ['organizer', 'judge']); allow write: if false; }
+      match /judgeAssignments/{judgeUid} {
+        allow read: if isOrganizer(e) || (hasRole(e, ['judge']) && isMe(judgeUid));
+        allow write: if false;
+      }
+
+      match /submissions/{teamId} {
+        allow read: if isOrganizer(e) || isAssignedJudge(e, teamId);
+        allow write: if false;
+        match /versions/{n} {
+          allow read: if isOrganizer(e) || isAssignedJudge(e, teamId);
+          allow write: if false;
+        }
+      }
+
+      // Score IDs are `${judgeUid}_${teamId}`: a judge reads only their own.
+      match /scores/{scoreId} {
+        allow read: if isOrganizer(e)
+          || (hasRole(e, ['judge']) && scoreId.matches(request.auth.uid + '_.*'));
+        allow write: if false;
+      }
+
+      match /rewards/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /complaints/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /ratings/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /travelPlans/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /circles/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /connections/{id} { allow read: if isOrganizer(e); allow write: if false; }
+
+      // Create-only through the server; organizers can read the trail.
+      match /audit/{id} {
+        allow read: if isOrganizer(e);
+        allow write: if false;
+      }
+    }
+  }
+}
