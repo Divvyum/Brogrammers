@@ -9,6 +9,12 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 60_000,
     hookTimeout: 120_000,
-    env: { JOBS_DISABLED: "true", NODE_ENV: "test" },
+    env: {
+      JOBS_DISABLED: "true",
+      NODE_ENV: "test",
+      CLOUDINARY_CLOUD_NAME: "hackos-test",
+      CLOUDINARY_API_KEY: "test-key",
+      CLOUDINARY_API_SECRET: "test-secret",
+    },
   },
 });

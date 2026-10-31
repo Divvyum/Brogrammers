@@ -12,6 +12,10 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@hackos/shared": ["./packages/shared/src/index.ts"],
+      "@hackos/shared/crypto": ["./packages/shared/src/crypto/index.ts"]
+    },
     "noEmit": true
   }
 }

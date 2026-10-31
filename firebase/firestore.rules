@@ -21,6 +21,7 @@ service cloud.firestore {
     function hasRole(e, roles) { return inEvent(e) && (isSuper() || role() in roles); }
     function isOrganizer(e) { return hasRole(e, ['organizer']); }
     function isStaff(e) { return hasRole(e, ['organizer', 'volunteer', 'mentor', 'judge']); }
+    function isParticipant(e) { return hasRole(e, ['participant']) && role() == 'participant'; }
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
 
     // A judge's assigned team IDs.
@@ -84,7 +85,11 @@ service cloud.firestore {
       }
 
       match /duplicates/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /replacements/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /replacements/{id} {
+        allow read: if isOrganizer(e) || (isParticipant(e) &&
+          (resource.data.currentCandidate == request.auth.uid || resource.data.acceptedUid == request.auth.uid));
+        allow write: if false;
+      }
 
       match /waitlist/{uid} {
         allow read: if isOrganizer(e) || (inEvent(e) && isMe(uid));
@@ -150,13 +155,19 @@ service cloud.firestore {
       }
 
       match /mentorSlots/{id} {
-        allow read: if isOrganizer(e) || (hasRole(e, ['mentor']) && resource.data.mentorUid == request.auth.uid);
+        allow read: if isOrganizer(e) || isParticipant(e)
+          || (hasRole(e, ['mentor']) && resource.data.mentorUid == request.auth.uid);
         allow write: if false;
       }
-      match /progress/{id} { allow read: if hasRole(e, ['organizer', 'mentor']); allow write: if false; }
+      match /progress/{id} {
+        allow read: if hasRole(e, ['organizer', 'mentor']) ||
+          (isParticipant(e) && resource.data.uid == request.auth.uid);
+        allow write: if false;
+      }
 
       match /tickets/{id} {
-        allow read: if hasRole(e, ['organizer', 'volunteer']);
+        allow read: if hasRole(e, ['organizer', 'volunteer']) ||
+          (isParticipant(e) && resource.data.createdBy == request.auth.uid);
         allow write: if false;
       }
       match /tasks/{id} {
@@ -173,10 +184,12 @@ service cloud.firestore {
       }
 
       match /submissions/{teamId} {
-        allow read: if isOrganizer(e) || isAssignedJudge(e, teamId);
+        allow read: if isOrganizer(e) || isAssignedJudge(e, teamId)
+          || (isParticipant(e) && request.auth.uid in get(/databases/$(database)/documents/events/$(e)/teams/$(teamId)).data.memberUids);
         allow write: if false;
         match /versions/{n} {
-          allow read: if isOrganizer(e) || isAssignedJudge(e, teamId);
+          allow read: if isOrganizer(e) || isAssignedJudge(e, teamId)
+            || (isParticipant(e) && request.auth.uid in get(/databases/$(database)/documents/events/$(e)/teams/$(teamId)).data.memberUids);
           allow write: if false;
         }
       }
@@ -188,12 +201,24 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Participants use the API, which checks team ownership before returning a reward.
       match /rewards/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /complaints/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /ratings/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /travelPlans/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /circles/{id} { allow read: if isOrganizer(e); allow write: if false; }
-      match /connections/{id} { allow read: if isOrganizer(e); allow write: if false; }
+      match /complaints/{id} { allow read: if isOrganizer(e) || (isParticipant(e) && resource.data.uid == request.auth.uid); allow write: if false; }
+      match /ratings/{id} { allow read: if isOrganizer(e) || (isParticipant(e) && isMe(id)); allow write: if false; }
+      match /travelPlans/{id} { allow read: if isOrganizer(e) || (isParticipant(e) && isMe(id)); allow write: if false; }
+      match /circles/{id} {
+        allow read: if isOrganizer(e) || (isParticipant(e) && request.auth.uid in resource.data.members);
+        allow write: if false;
+        match /messages/{messageId} {
+          allow read: if isParticipant(e) && request.auth.uid in get(/databases/$(database)/documents/events/$(e)/circles/$(id)).data.members;
+          allow write: if false;
+        }
+      }
+      match /connections/{id} {
+        allow read: if isOrganizer(e) || (isParticipant(e) &&
+          (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid));
+        allow write: if false;
+      }
 
       // Create-only through the server; organizers can read the trail.
       match /audit/{id} {

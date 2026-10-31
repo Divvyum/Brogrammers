@@ -8,3 +8,4 @@ allowBuilds:
   "@firebase/util": true
   protobufjs: true
   re2: false
+  '@whiskeysockets/baileys': set this to true or false

@@ -7,6 +7,11 @@ import { db } from "./firebase.js";
 // worker using render(). Organizers can edit them; defaults never overwrite edits.
 
 export const DEFAULT_TEMPLATES: Record<string, { channel: Channel; body: string }> = {
+  otp: { channel: "whatsapp", body: "Your HACKOS login code is {{code}}. It expires in 5 minutes. Never share it." },
+  registration_confirmed: { channel: "whatsapp", body: "Thanks {{name}} — your HACKOS registration was received." },
+  slot_booked: { channel: "whatsapp", body: "Arrival slot {{slotId}} booked. Room: {{room}}." },
+  submission_receipt: { channel: "whatsapp", body: "Submission v{{version}} received. Receipt: {{receiptId}}." },
+  command_reply: { channel: "whatsapp", body: "{{reply}}" },
   eligibility_eligible: { channel: "whatsapp", body: "You're in! Your HACKOS registration is confirmed. Next: form or join a team." },
   eligibility_flagged: { channel: "whatsapp", body: "Your HACKOS registration needs a quick review: {{reason}}. An organizer will contact you." },
   eligibility_rejected: { channel: "whatsapp", body: "Sorry, your HACKOS registration could not be accepted: {{reason}}." },

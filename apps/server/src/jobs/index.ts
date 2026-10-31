@@ -10,6 +10,7 @@ import { expireWaitlistOffers } from "../admin/replacement/waitlist.js";
 import { lockTeamsIfDue } from "../admin/teams/lock.js";
 import { listEventIds } from "../core/events.js";
 import { stats } from "../core/stats.js";
+import { matchTravelCircles, sendMentorReminders, sendProgressReminders } from "../participant/jobs.js";
 
 // Cron jobs and Firestore listeners (replace scheduled and triggered Cloud Functions).
 
@@ -45,6 +46,9 @@ export function startJobs(): () => void {
       noOverlap: true,
     }),
     cron.schedule("*/5 * * * *", forEachEvent("rebalance", rebalanceDueSlots), { name: "rebalance", noOverlap: true }),
+    cron.schedule("*/5 * * * *", forEachEvent("mentorReminders", sendMentorReminders), { name: "mentorReminders", noOverlap: true }),
+    cron.schedule("0 */3 * * *", forEachEvent("progressReminders", sendProgressReminders), { name: "progressReminders", noOverlap: true }),
+    cron.schedule("*/30 * * * *", forEachEvent("travelCircles", matchTravelCircles), { name: "travelCircles", noOverlap: true }),
     // Nightly full recount corrects any drift in the live counters.
     cron.schedule("0 3 * * *", forEachEvent("statsRecompute", stats.recompute), {
       name: "statsRecompute",

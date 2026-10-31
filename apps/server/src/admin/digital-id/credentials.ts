@@ -12,6 +12,7 @@ import { enqueueMany, type EnqueueInput } from "../../core/outbox.js";
 import { signCredential } from "../../core/signing.js";
 import { stats } from "../../core/stats.js";
 import { bumpRosterTx } from "./roster.js";
+import { assertEnrollmentApproved } from "./enrollment-policy.js";
 
 // Digital ID (plan D13, Samrat's guide 6.2–6.4).
 
@@ -19,7 +20,9 @@ export const ENROLL_TOKEN_TTL_MS = 48 * 60 * 60_000;
 const BACKUP_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I
 
 export function generateBackupCode(): string {
-  return Array.from({ length: 8 }, () => BACKUP_ALPHABET[randomInt(BACKUP_ALPHABET.length)]).join("");
+  return Array.from({ length: 8 }, () => BACKUP_ALPHABET[randomInt(BACKUP_ALPHABET.length)]).join(
+    "",
+  );
 }
 
 /** A valid device key is a raw uncompressed P-256 point: 65 bytes starting with 0x04. */
@@ -30,10 +33,12 @@ function assertDeviceKey(devicePubKey: string) {
   } catch {
     throw badRequest("devicePubKey is not base64url");
   }
-  if (bytes.length !== 65 || bytes[0] !== 0x04) throw badRequest("devicePubKey must be a raw 65-byte P-256 key");
+  if (bytes.length !== 65 || bytes[0] !== 0x04)
+    throw badRequest("devicePubKey must be a raw 65-byte P-256 key");
 }
 
-const statusIndex = (s: string) => PARTICIPANT_STATUSES.indexOf(s as (typeof PARTICIPANT_STATUSES)[number]);
+const statusIndex = (s: string) =>
+  PARTICIPANT_STATUSES.indexOf(s as (typeof PARTICIPANT_STATUSES)[number]);
 
 /**
  * Binds a device key to a participant and signs their credential. Returns the
@@ -49,8 +54,9 @@ export async function completeEnrollment(eventId: string, uid: string, devicePub
     const eventSnap = await tx.get(eventRef(eventId));
     const p = await tx.get(col(eventId, "participants").doc(uid));
     if (!p.exists) throw notFound("Participant");
-    if (p.get("mergedInto") || p.get("withdrawnAt")) throw conflict("This registration is no longer active");
-    if (p.get("enrollment.status") === "revoked") throw new HttpError(403, "REVOKED", "This ID was revoked");
+    assertEnrollmentApproved(p.data() ?? {});
+    if (p.get("enrollment.status") === "revoked")
+      throw new HttpError(403, "REVOKED", "This ID was revoked");
 
     const payload: CredentialPayload = {
       v: 1,
@@ -85,14 +91,22 @@ export async function enrollWithToken(eventId: string, token: string, devicePubK
     if (!t.exists) throw new HttpError(400, "BAD_TOKEN", "Invalid enrollment link");
     if (t.get("used")) throw new HttpError(409, "TOKEN_USED", "Already enrolled on another device");
     if ((t.get("expiresAt") as Timestamp).toMillis() < Date.now()) {
-      throw new HttpError(410, "TOKEN_EXPIRED", "Enrollment link expired, ask an organizer for a new one");
+      throw new HttpError(
+        410,
+        "TOKEN_EXPIRED",
+        "Enrollment link expired, ask an organizer for a new one",
+      );
     }
     tx.update(ref, { used: true, usedAt: FieldValue.serverTimestamp() });
     return t.get("uid") as string;
   });
   const result = await completeEnrollment(eventId, uid, devicePubKey);
   const p = await col(eventId, "participants").doc(uid).get();
-  return { ...result, uid, profile: { name: p.get("name"), college: p.get("college"), teamId: p.get("teamId") } };
+  return {
+    ...result,
+    uid,
+    profile: { name: p.get("name"), college: p.get("college"), teamId: p.get("teamId") },
+  };
 }
 
 /** Marks every unused token of these participants as used, so old links stop working. */
@@ -119,7 +133,9 @@ export async function sendEnrollmentLinks(eventId: string, actor: string, uids?:
     targets = uids;
     await invalidateTokens(eventId, uids);
   } else {
-    const snap = await col(eventId, "participants").where("eligibility.result", "==", "eligible").get();
+    const snap = await col(eventId, "participants")
+      .where("eligibility.result", "==", "eligible")
+      .get();
     targets = snap.docs
       .filter((p) => !p.get("enrollment") && !p.get("mergedInto") && !p.get("withdrawnAt"))
       .map((p) => p.id);
@@ -132,7 +148,11 @@ export async function sendEnrollmentLinks(eventId: string, actor: string, uids?:
     const token = randomToken();
     const hash = sha256Hex(token);
     writer.create(col(eventId, "enrollTokens").doc(hash), { uid, expiresAt, used: false });
-    writer.set(col(eventId, "participants").doc(uid), { enrollment: { status: "invited" } }, { merge: true });
+    writer.set(
+      col(eventId, "participants").doc(uid),
+      { enrollment: { status: "invited" } },
+      { merge: true },
+    );
     messages.push({
       channel: "whatsapp",
       uid,
@@ -144,7 +164,13 @@ export async function sendEnrollmentLinks(eventId: string, actor: string, uids?:
   }
   await writer.close();
   await enqueueMany(messages);
-  await writeAudit({ eventId, actor, action: "enrollment.send", target: eventId, after: { count: targets.length } });
+  await writeAudit({
+    eventId,
+    actor,
+    action: "enrollment.send",
+    target: eventId,
+    after: { count: targets.length },
+  });
   return { sent: targets.length };
 }
 
@@ -161,7 +187,14 @@ export async function revokeId(eventId: string, uid: string, actor: string, reas
     });
     bumpRosterTx(tx, eventSnap, [uid]);
     await writeAudit(
-      { eventId, actor, action: "id.revoke", target: uid, before: p.get("enrollment") ?? null, reason },
+      {
+        eventId,
+        actor,
+        action: "id.revoke",
+        target: uid,
+        before: p.get("enrollment") ?? null,
+        reason,
+      },
       tx,
     );
   });
@@ -178,7 +211,14 @@ export async function reissueId(eventId: string, uid: string, actor: string, rea
     tx.update(p.ref, { enrollment: { status: "invited" }, backupCode: FieldValue.delete() });
     bumpRosterTx(tx, eventSnap, [uid]);
     await writeAudit(
-      { eventId, actor, action: "id.reissue", target: uid, before: p.get("enrollment") ?? null, reason },
+      {
+        eventId,
+        actor,
+        action: "id.reissue",
+        target: uid,
+        before: p.get("enrollment") ?? null,
+        reason,
+      },
       tx,
     );
   });

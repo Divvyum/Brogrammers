@@ -45,4 +45,8 @@ export const env = {
   },
   geminiApiKey: optional("GEMINI_API_KEY"),
   githubToken: optional("GITHUB_TOKEN"),
+  waEnabled: process.env.WA_ENABLED === "true",
+  waPrintQr: process.env.WA_PRINT_QR !== "false",
+  waWorkerId: process.env.WA_WORKER_ID ?? `worker-${process.pid}`,
+  waSessionKey: optional("WA_SESSION_KEY"),
 };

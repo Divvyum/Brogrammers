@@ -28,6 +28,7 @@ import { env } from "./core/env.js";
 import { db } from "./core/firebase.js";
 import { errorHandler, jsonReplacer, requestLogger } from "./core/http.js";
 import { apiLimiter } from "./core/rateLimit.js";
+import { participantPublicRouter, participantRouter } from "./participant/routes.js";
 
 export function createApp() {
   const app = express();
@@ -50,6 +51,10 @@ export function createApp() {
     res.json({ status: "ok", firestore, emulators: env.usingEmulators });
   });
   app.use("/api/public/certificates", publicCertificatesRouter);
+
+  // ---------- participant ----------
+  app.use("/api/p", appCheck, participantPublicRouter);
+  app.use("/api/p", appCheck, requireAuth, participantRouter);
 
   // ---------- admin ----------
   const admin = Router();

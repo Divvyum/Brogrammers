@@ -1,6 +1,13 @@
 import { FieldValue, Timestamp, type BulkWriter } from "firebase-admin/firestore";
 import { COL, DOC, eventPath } from "@hackos/shared";
-import { encrypt, hashEmail, hashPhone, lookupHash, normalizeEmail, normalizePhone } from "../../apps/server/src/core/crypto.js";
+import {
+  encrypt,
+  hashEmail,
+  hashPhone,
+  lookupHash,
+  normalizeEmail,
+  normalizePhone,
+} from "../../apps/server/src/core/crypto.js";
 import { auth, db } from "../../apps/server/src/core/firebase.js";
 import { stats } from "../../apps/server/src/core/stats.js";
 import { seedExtras } from "./seed-extras.js";
@@ -39,15 +46,133 @@ function rng(seed: number) {
   };
 }
 
-const FIRST = ["Aarav", "Vivaan", "Aditya", "Vihaan", "Arjun", "Sai", "Reyansh", "Krishna", "Ishaan", "Rohan", "Ananya", "Diya", "Saanvi", "Aadhya", "Kavya", "Isha", "Meera", "Priya", "Riya", "Sneha", "Neha", "Pooja", "Kunal", "Rahul", "Siddharth", "Tanvi", "Nikhil", "Aman", "Divya", "Harsh", "Manav", "Zoya", "Farhan", "Sara", "Kabir", "Tara", "Yash", "Anika", "Dev", "Nisha"] as const;
-const LAST = ["Sharma", "Verma", "Patel", "Iyer", "Nair", "Reddy", "Gupta", "Mehta", "Joshi", "Kulkarni", "Desai", "Shah", "Rao", "Singh", "Khan", "Das", "Bose", "Chatterjee", "Pillai", "Menon", "Bhat", "Kapoor", "Malhotra", "Agarwal", "Jain"] as const;
-export const SEED_COLLEGES = ["SAKEC", "VJTI", "SPIT", "DJSCE", "KJSCE", "TSEC", "VESIT", "Thadomal"] as const;
+const FIRST = [
+  "Aarav",
+  "Vivaan",
+  "Aditya",
+  "Vihaan",
+  "Arjun",
+  "Sai",
+  "Reyansh",
+  "Krishna",
+  "Ishaan",
+  "Rohan",
+  "Ananya",
+  "Diya",
+  "Saanvi",
+  "Aadhya",
+  "Kavya",
+  "Isha",
+  "Meera",
+  "Priya",
+  "Riya",
+  "Sneha",
+  "Neha",
+  "Pooja",
+  "Kunal",
+  "Rahul",
+  "Siddharth",
+  "Tanvi",
+  "Nikhil",
+  "Aman",
+  "Divya",
+  "Harsh",
+  "Manav",
+  "Zoya",
+  "Farhan",
+  "Sara",
+  "Kabir",
+  "Tara",
+  "Yash",
+  "Anika",
+  "Dev",
+  "Nisha",
+] as const;
+const LAST = [
+  "Sharma",
+  "Verma",
+  "Patel",
+  "Iyer",
+  "Nair",
+  "Reddy",
+  "Gupta",
+  "Mehta",
+  "Joshi",
+  "Kulkarni",
+  "Desai",
+  "Shah",
+  "Rao",
+  "Singh",
+  "Khan",
+  "Das",
+  "Bose",
+  "Chatterjee",
+  "Pillai",
+  "Menon",
+  "Bhat",
+  "Kapoor",
+  "Malhotra",
+  "Agarwal",
+  "Jain",
+] as const;
+export const SEED_COLLEGES = [
+  "SAKEC",
+  "VJTI",
+  "SPIT",
+  "DJSCE",
+  "KJSCE",
+  "TSEC",
+  "VESIT",
+  "Thadomal",
+] as const;
 const OTHER_COLLEGES = ["Unknown Institute", "Night School of Tech"] as const;
 const CITIES = ["Mumbai", "Pune", "Nashik", "Thane", "Navi Mumbai", "Nagpur"] as const;
-const SKILLS = ["react", "node", "python", "ml", "design", "flutter", "android", "devops", "solidity", "data", "ui", "backend", "firebase", "go"] as const;
+const SKILLS = [
+  "react",
+  "node",
+  "python",
+  "ml",
+  "design",
+  "flutter",
+  "android",
+  "devops",
+  "solidity",
+  "data",
+  "ui",
+  "backend",
+  "firebase",
+  "go",
+] as const;
 export const SEED_TRACKS = ["AI", "FinTech", "HealthTech", "Open"] as const;
-const TEAM_WORDS = ["Byte", "Null", "Pixel", "Quantum", "Stack", "Lambda", "Async", "Kernel", "Vector", "Neon", "Cipher", "Echo", "Delta", "Orbit", "Flux"] as const;
-const TEAM_WORDS_2 = ["Busters", "Pointers", "Ninjas", "Wizards", "Hackers", "Coders", "Builders", "Crew", "Squad", "Labs"] as const;
+const TEAM_WORDS = [
+  "Byte",
+  "Null",
+  "Pixel",
+  "Quantum",
+  "Stack",
+  "Lambda",
+  "Async",
+  "Kernel",
+  "Vector",
+  "Neon",
+  "Cipher",
+  "Echo",
+  "Delta",
+  "Orbit",
+  "Flux",
+] as const;
+const TEAM_WORDS_2 = [
+  "Busters",
+  "Pointers",
+  "Ninjas",
+  "Wizards",
+  "Hackers",
+  "Coders",
+  "Builders",
+  "Crew",
+  "Squad",
+  "Labs",
+] as const;
 
 // Small, well-known public repos (fast to fetch) for GitHub insights (D23).
 const PUBLIC_REPOS = [
@@ -81,7 +206,9 @@ export async function resetEmulators(projectId: string) {
   const fs = process.env.FIRESTORE_EMULATOR_HOST;
   const au = process.env.FIREBASE_AUTH_EMULATOR_HOST;
   if (!fs || !au) throw new Error("resetEmulators only runs against the emulators");
-  await fetch(`http://${fs}/emulator/v1/projects/${projectId}/databases/(default)/documents`, { method: "DELETE" });
+  await fetch(`http://${fs}/emulator/v1/projects/${projectId}/databases/(default)/documents`, {
+    method: "DELETE",
+  });
   await fetch(`http://${au}/emulator/v1/projects/${projectId}/accounts`, { method: "DELETE" });
 }
 
@@ -97,7 +224,12 @@ async function staffUser(
   try {
     user = await auth.getUserByEmail(email);
   } catch {
-    user = await auth.createUser({ email, password: PASSWORD, displayName: name, emailVerified: true });
+    user = await auth.createUser({
+      email,
+      password: PASSWORD,
+      displayName: name,
+      emailVerified: true,
+    });
   }
   await auth.setCustomUserClaims(user.uid, { role, eventId });
   w.set(db.collection(COL.users).doc(user.uid), {
@@ -134,7 +266,12 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     teamMax: 4,
     tracks: [...SEED_TRACKS],
     rounds: [
-      { id: "r1", name: "Final judging", startAt: at(9 * day - 6 * 3600_000), endAt: at(9 * day - 2 * 3600_000) },
+      {
+        id: "r1",
+        name: "Final judging",
+        startAt: at(9 * day - 6 * 3600_000),
+        endAt: at(9 * day - 2 * 3600_000),
+      },
     ],
     eligibilityRules: {
       allowedYears: [1, 2, 3, 4],
@@ -159,8 +296,20 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
   const roomIds: string[] = [];
   const rooms = [
     ...SEED_TRACKS.flatMap((track, i) => [
-      { name: `${String.fromCharCode(65 + i)}101`, floor: "1", capacity: 24, track, mentorDesk: true },
-      { name: `${String.fromCharCode(65 + i)}102`, floor: "1", capacity: 24, track, mentorDesk: false },
+      {
+        name: `${String.fromCharCode(65 + i)}101`,
+        floor: "1",
+        capacity: 24,
+        track,
+        mentorDesk: true,
+      },
+      {
+        name: `${String.fromCharCode(65 + i)}102`,
+        floor: "1",
+        capacity: 24,
+        track,
+        mentorDesk: false,
+      },
     ]),
     { name: "Hall-1", floor: "G", capacity: 12, mentorDesk: false },
     { name: "Hall-2", floor: "G", capacity: 12, mentorDesk: false },
@@ -176,14 +325,29 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     const ref = db.collection(eventPath(eventId, "slots")).doc(`slot${i + 1}`);
     slotIds.push(ref.id);
     const s = startAt - 3 * 3600_000 + i * 30 * 60_000; // every 30 minutes from 3h before start
-    slotDocs.push({ ref, doc: { startAt: Timestamp.fromMillis(s), endAt: Timestamp.fromMillis(s + 30 * 60_000), capacity: 40, booked: 0 } });
+    slotDocs.push({
+      ref,
+      doc: {
+        startAt: Timestamp.fromMillis(s),
+        endAt: Timestamp.fromMillis(s + 30 * 60_000),
+        capacity: 40,
+        booked: 0,
+      },
+    });
   }
 
   // ---------- staff ----------
   const staff: SeedSummary["staff"] = [];
   const add = async (role: string, i: number, extra: Record<string, unknown> = {}) => {
     const email = `${role}${i}@hackos.test`;
-    const uid = await staffUser(role, email, `${role[0]!.toUpperCase()}${role.slice(1)} ${i}`, eventId, w, extra);
+    const uid = await staffUser(
+      role,
+      email,
+      `${role[0]!.toUpperCase()}${role.slice(1)} ${i}`,
+      eventId,
+      w,
+      extra,
+    );
     staff.push({ role, email, uid });
     return uid;
   };
@@ -196,7 +360,10 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     const pin = String(100000 + i); // 100001 … 100010 (dev only)
     const key = lookupHash(`pin:${eventId}:${pin}`);
     const uid = await add("volunteer", i, { pinKey: key });
-    w.set(db.collection(eventPath(eventId, "volunteerPins")).doc(key), { uid, createdAt: FieldValue.serverTimestamp() });
+    w.set(db.collection(eventPath(eventId, "volunteerPins")).doc(key), {
+      uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
     staff[staff.length - 1]!.pin = pin;
   }
 
@@ -233,6 +400,28 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
   });
   for (let k = 0; k < 20; k++) all.push(makePerson(null));
 
+  // Stable participant login for the local participant dashboard.
+  const demoParticipant = all[0]!;
+  const demoEmail = "participant@hackos.test";
+  await auth
+    .createUser({
+      uid: demoParticipant.uid,
+      email: demoEmail,
+      password: PASSWORD,
+      displayName: demoParticipant.name,
+      emailVerified: true,
+    })
+    .catch(async () => {
+      const existing = await auth.getUser(demoParticipant.uid);
+      await auth.updateUser(existing.uid, {
+        email: demoEmail,
+        password: PASSWORD,
+        displayName: demoParticipant.name,
+        emailVerified: true,
+      });
+    });
+  await auth.setCustomUserClaims(demoParticipant.uid, { role: "participant", eventId });
+
   // Planted duplicates: 4 fuzzy (typo'd name, same college, new phone/email) and
   // 2 with the same email (as if imported before uniqueness checks existed).
   const plantedDuplicates: SeedSummary["plantedDuplicates"] = [];
@@ -241,10 +430,17 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     const original = all[k * 23 + 5]!;
     const dup = solos[k]!;
     const typo = k % 2 ? original.name.replace(/a/, "aa") : original.name.replace(/(\w)$/, "$1h");
-    Object.assign(dup, { name: typo, college: original.college, year: original.year, city: original.city });
+    Object.assign(dup, {
+      name: typo,
+      college: original.college,
+      year: original.year,
+      city: original.city,
+    });
     plantedDuplicates.push({ kind: k < 4 ? "fuzzy" : "email", uids: [original.uid, dup.uid] });
   }
-  const sameEmailAs = new Map(plantedDuplicates.filter((d) => d.kind === "email").map((d) => [d.uids[1], d.uids[0]]));
+  const sameEmailAs = new Map(
+    plantedDuplicates.filter((d) => d.kind === "email").map((d) => [d.uids[1], d.uids[0]]),
+  );
 
   const emailOf = (p: (typeof all)[number]) =>
     `${p.first}.${p.last}.${p.uid}@students.test`.toLowerCase();
@@ -256,7 +452,9 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
   const registeredBase = now.getTime() - 20 * day;
 
   all.forEach((p, i) => {
-    const email = sameEmailAs.has(p.uid) ? emailOf(all.find((x) => x.uid === sameEmailAs.get(p.uid))!) : emailOf(p);
+    const email = sameEmailAs.has(p.uid)
+      ? emailOf(all.find((x) => x.uid === sameEmailAs.get(p.uid))!)
+      : emailOf(p);
     const phone = phoneOf(i);
     const skills = r.sample(SKILLS, r.int(2, 4));
     const teamId = p.teamIdx === null ? undefined : teamIds[p.teamIdx];
@@ -280,9 +478,15 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
       eventId,
     });
     if (!sameEmailAs.has(p.uid)) {
-      w.set(db.doc(DOC.uniqueKey("email", hashEmail(email))), { uid: p.uid, createdAt: FieldValue.serverTimestamp() });
+      w.set(db.doc(DOC.uniqueKey("email", hashEmail(email))), {
+        uid: p.uid,
+        createdAt: FieldValue.serverTimestamp(),
+      });
     }
-    w.set(db.doc(DOC.uniqueKey("phone", hashPhone(phone))), { uid: p.uid, createdAt: FieldValue.serverTimestamp() });
+    w.set(db.doc(DOC.uniqueKey("phone", hashPhone(phone))), {
+      uid: p.uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
 
     const doc: Record<string, unknown> = {
       name: p.name,
@@ -292,7 +496,11 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
       track,
       rosterVersion: 1,
       // Solos 6+ (not the planted duplicates) book slots and open themselves to replacement.
-      slotId: isSolo ? (soloIdx >= 6 ? slotIds[soloIdx % slotIds.length] : undefined) : teamSlots[p.teamIdx!],
+      slotId: isSolo
+        ? soloIdx >= 6
+          ? slotIds[soloIdx % slotIds.length]
+          : undefined
+        : teamSlots[p.teamIdx!],
     };
     if (teamId) doc.teamId = teamId;
     if (isSolo && soloIdx >= 6 && soloIdx < 14) {
@@ -332,7 +540,8 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     if (slot) booked.set(slot, (booked.get(slot) ?? 0) + 1);
   });
   solos.forEach((p, k) => {
-    if (k >= 6) booked.set(slotIds[k % slotIds.length]!, (booked.get(slotIds[k % slotIds.length]!) ?? 0) + 1);
+    if (k >= 6)
+      booked.set(slotIds[k % slotIds.length]!, (booked.get(slotIds[k % slotIds.length]!) ?? 0) + 1);
     void p;
   });
   for (const { ref, doc } of slotDocs) w.set(ref, { ...doc, booked: booked.get(ref.id) ?? 0 });
@@ -347,7 +556,10 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
       receiptId: `RCPT-${teamId.toUpperCase()}-1`,
     };
     w.set(db.collection(eventPath(eventId, "submissions")).doc(teamId), sub);
-    w.set(db.collection(eventPath(eventId, "submissions")).doc(teamId).collection("versions").doc("1"), sub);
+    w.set(
+      db.collection(eventPath(eventId, "submissions")).doc(teamId).collection("versions").doc("1"),
+      sub,
+    );
   });
 
   await w.close();

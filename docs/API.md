@@ -5,6 +5,52 @@ Request and response bodies are JSON. Dates go both ways as ISO strings. Request
 schemas live in `packages/shared/src/api.ts` — use them for form validation so the
 client and server agree.
 
+## Participant API (M1–M21)
+
+Public endpoints (App Check is enforced when configured):
+
+| Method | Route | Body |
+|---|---|---|
+| POST | `/api/p/auth/otp/request` | `{ phone, eventId }` |
+| POST | `/api/p/auth/otp/verify` | `{ phone, eventId, code }` → Firebase custom token |
+| POST | `/api/p/enroll` | `{ eventId, token, devicePubKey }` |
+
+All remaining routes require a participant Firebase ID token. The event is taken
+from its custom claim; clients cannot select another event.
+
+| Area | Routes |
+|---|---|
+| Profile/status | `GET /me`, `GET /status`, `PUT /registration`, `POST /upload-signature` |
+| Teams | `POST /teams`, `POST /teams/join`, `POST /teams/leave`, `POST /teams/withdraw`, `GET /teams/mine`, `POST /team-requests`, `GET /matching` |
+| Matching/community | `POST /connections`, `POST /connections/:id/respond`, `GET /community`, `PUT /community/opt-in` |
+| Replacement | `PUT /replacement/open`, `POST /replacements/:id/accept|decline`, `POST /waitlist/respond` |
+| JourneyLink | `PUT /travel`, `GET /circles/mine`, `POST /circles/:id/messages`, `POST /slots/:slotId/book` |
+| Digital ID | `POST /id/reissue` (initial enrollment uses the public route) |
+| Event content | `GET /schedule`, `GET /problems`, `GET /announcements`, `POST /announcements/:id/seen`, `PUT /fcm-token` |
+| Mentors | `GET /mentor-slots`, `POST|DELETE /mentor-slots/:id/book` |
+| Event day | `POST /progress`, `POST /tickets`, `GET /food-pass` |
+| Submission/results | `POST /submissions`, `GET /results`, `GET /certificates` |
+| After event | `POST /rewards/:id/confirm`, `POST /complaints`, `POST /ratings` |
+
+WhatsApp commands are case-insensitive: `STATUS`, `MY TEAM`, `MY ROOM`,
+`SCHEDULE`, `MENTOR`, `SUBMISSION`, and `HELP`. Replies are queued through the
+same transactional outbox as notifications.
+
+### WhatsApp login and smoke test
+
+1. Set `WA_ENABLED=true`, `WA_PRINT_QR=true`, Firebase credentials/emulator
+   settings, `DATA_ENC_KEY`, and `HASH_KEY` in `apps/server/.env`.
+2. Start the server with `pnpm --filter @hackos/server start`.
+3. In WhatsApp on the spare SIM: **Linked devices → Link a device**, then scan
+   the terminal QR.
+4. Confirm `waStatus/current.state == "connected"` and encrypted documents exist
+   in `waSession`.
+5. Restart the server. It must reconnect without another QR. Send `HELP` from a
+   registered participant phone and confirm exactly one outbox reply is sent.
+
+Never use a personal WhatsApp number. Baileys is unofficial; production should
+use the official WhatsApp Business API.
+
 ## Auth
 
 Every `/api/admin/*` route except the volunteer login needs a Firebase ID token:
