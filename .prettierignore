@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+dist
+firebase/emulator-data
+docs/HACKOS-build-plan.md

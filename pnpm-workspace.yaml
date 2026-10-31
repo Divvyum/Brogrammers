@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+  - scripts
+
+allowBuilds:
+  esbuild: true
+  "@firebase/util": true
+  protobufjs: true
+  re2: false
