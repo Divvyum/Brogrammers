@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { allotmentRouter } from "./admin/allotment/routes.js";
 import { analyticsRouter } from "./admin/analytics/routes.js";
 import { announcementsRouter } from "./admin/announcements/routes.js";
+import { auditRouter } from "./admin/audit/routes.js";
 import { certificatesRouter, publicCertificatesRouter } from "./admin/certificates/routes.js";
 import { checkinsRouter } from "./admin/checkins/routes.js";
 import { digitalIdRouter } from "./admin/digital-id/routes.js";
@@ -81,6 +82,7 @@ export function createApp() {
     rewardsRouter,
     exportsRouter,
     analyticsRouter,
+    auditRouter,
   ]) {
     perEvent.use(r);
   }

@@ -1,6 +1,11 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
-import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import {
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 export const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,7 +18,11 @@ export const app = initializeApp({
 });
 
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, { localCache: persistentLocalCache() });
+// Offline persistence: the scanner's check-ins queue here and upload when the
+// internet returns (plan A13 step 10).
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 
 if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === "true") {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
