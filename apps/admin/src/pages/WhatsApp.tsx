@@ -67,7 +67,7 @@ export function WhatsApp() {
       <div className="toolbar wrap">
         <select value={filters.status} onChange={(e) => set("status", e.target.value)}>
           <option value="">Any status</option>
-          {["queued", "sending", "sent", "failed"].map((s) => (
+          {["queued", "sending", "sent", "failed", "skipped"].map((s) => (
             <option key={s}>{s}</option>
           ))}
         </select>

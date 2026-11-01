@@ -6,6 +6,8 @@ import { useSession } from "../auth/Session";
 import { useEvent } from "../lib/event";
 import { label } from "../lib/format";
 import { navFor } from "./nav";
+import { Brand } from "../components/AuraLogo";
+import { LogOut, Menu, Moon, Sun } from "lucide-react";
 
 // App shell (plan A1): side nav grouped by area, event switcher for the super
 // admin, theme toggle, account menu. Collapses to a top drawer on phones.
@@ -46,10 +48,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className={`shell ${open ? "nav-open" : ""}`}>
       <aside className="sidebar">
         <a className="brand" href="/">
-          <span className="brand-mark">H</span>
-          <span>
-            HACKOS<small>EVENT CONTROL</small>
-          </span>
+          <Brand sub="Admin" />
         </a>
         {role === "superadmin" ? (
           <div className="event-switch">
@@ -77,6 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 .filter((i) => i.group === g)
                 .map((i) => (
                   <NavLink key={i.path} to={i.path} className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}>
+                    <i.icon size={19} strokeWidth={1.9} />
                     {i.label}
                   </NavLink>
                 ))}
@@ -90,23 +90,29 @@ export function Shell({ children }: { children: ReactNode }) {
       <main className="main">
         <header className="topbar">
           <div>
-            <button className="menu-button" aria-label="Open menu" onClick={() => setOpenAt(open ? null : location.pathname)}>
-              ☰
-            </button>
-            <span className="crumb">HACKOS / {current?.group.toUpperCase() ?? "CONTROL ROOM"}</span>
-            <h1>{current?.label ?? "HACKOS"}</h1>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <button className="menu-button round-btn" aria-label="Open menu" onClick={() => setOpenAt(open ? null : location.pathname)}>
+                <Menu size={20} />
+              </button>
+              <div>
+                <span className="crumb">{current?.group ?? "Control room"}</span>
+                <h1>{current?.label ?? "AURA Admin"}</h1>
+              </div>
+            </div>
           </div>
           <div className="account">
-            <div className="avatar">{(user?.displayName || user?.email || "H").slice(0, 1).toUpperCase()}</div>
-            <div>
-              <strong>{user?.displayName || user?.email || "Volunteer"}</strong>
-              <small>{role ? label(role) : "no role"}</small>
-            </div>
-            <button className="text-button" onClick={toggle} aria-label="Toggle colour theme">
-              {theme === "light" ? "Dark mode" : "Light mode"}
+            <button className="round-btn" onClick={toggle} aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} title={theme === "light" ? "Dark theme" : "Light theme"}>
+              {theme === "light" ? <Moon size={20} strokeWidth={1.9} /> : <Sun size={20} strokeWidth={1.9} />}
             </button>
-            <button className="text-button" onClick={() => signOut(auth)}>
-              Sign out
+            <div className="account-chip">
+              <div className="avatar">{(user?.displayName || user?.email || "A").slice(0, 1).toUpperCase()}</div>
+              <div>
+                <strong>{user?.displayName || user?.email || "Volunteer"}</strong>
+                <small>{role ? label(role) : "no role"}</small>
+              </div>
+            </div>
+            <button className="round-btn" onClick={() => signOut(auth)} aria-label="Sign out" title="Sign out">
+              <LogOut size={19} strokeWidth={1.9} />
             </button>
           </div>
         </header>

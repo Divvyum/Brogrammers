@@ -8,6 +8,7 @@ import { NoRole, Shell, Unauthorized, useTheme } from "./layout/Shell";
 import { Announcements } from "./pages/Announcements";
 import { AuditLog } from "./pages/AuditLog";
 import { CheckinMonitor } from "./pages/CheckinMonitor";
+import { Content } from "./pages/Content";
 import { Dashboard } from "./pages/Dashboard";
 import { DigitalIds } from "./pages/DigitalIds";
 import { Duplicates } from "./pages/Duplicates";
@@ -29,6 +30,7 @@ import { Teams } from "./pages/Teams";
 import { Waitlist } from "./pages/Waitlist";
 import { WhatsApp } from "./pages/WhatsApp";
 import { ScanApp } from "./scanner/ScanApp";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./style.css";
 import "./app.css";
 
@@ -38,6 +40,7 @@ import "./app.css";
 const PAGES: [string, () => ReactNode][] = [
   ["/dashboard", Dashboard],
   ["/event", EventSetup],
+  ["/content", Content],
   ["/staff", Staff],
   ["/participants", Participants],
   ["/duplicates", Duplicates],
@@ -74,7 +77,7 @@ function Routed() {
   const location = useLocation();
   useTheme();
 
-  if (loading) return <div className="boot">Loading HACKOS…</div>;
+  if (loading) return <div className="boot">Loading AURA…</div>;
   if (!user) return <Login />;
   if (!role) return <NoRole />;
 
