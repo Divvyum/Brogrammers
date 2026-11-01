@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, errorText } from './api'
 import { toast } from './toast'
 import type { EventContent } from '@hackos/shared'
+import { useSession } from './session'
 
 // Reads (keyed by API path) and actions (toast + refresh) for every screen.
 
@@ -85,4 +86,8 @@ export interface TeamView {
   openToReplacement: { on: boolean; skills: string[]; availability: string } | null
 }
 
-export const useEventInfo = () => useP<EventInfo>('/event')
+/** Full event details; only for a signed-in participant (the login screens use the public lookup). */
+export function useEventInfo() {
+  const { me } = useSession()
+  return useP<EventInfo>(me ? '/event' : null)
+}
