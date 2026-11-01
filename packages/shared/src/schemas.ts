@@ -173,6 +173,8 @@ export const Event = z.object({
     .array(z.object({ id, name: z.string(), startAt: FirestoreTimestamp, endAt: FirestoreTimestamp }))
     .optional(),
   counters: z.array(z.string()).optional(),
+  /** Participant-facing copy, map, prizes and alumni (EventContent in api.ts). */
+  content: z.record(z.string(), z.unknown()).optional(),
 });
 export type Event = z.infer<typeof Event>;
 

@@ -4,8 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@12.16.1",
   "scripts": {
-    "dev": "concurrently -k -n emu,server,admin,app -c yellow,green,cyan,magenta \"corepack pnpm emulators\" \"corepack pnpm --filter @hackos/server dev\" \"corepack pnpm --filter @hackos/admin dev\" \"corepack pnpm --filter @hackos/participant dev\"",
-    "dev:dashboards": "concurrently -k -n admin,user -c cyan,magenta \"corepack pnpm --filter @hackos/admin dev\" \"corepack pnpm --filter @hackos/participant dev\"",
+    "dev": "concurrently -k -n emu,server,admin,app -c yellow,green,cyan,magenta \"pnpm emulators\" \"pnpm --filter @hackos/server dev\" \"pnpm --filter @hackos/admin dev\" \"pnpm --filter @hackos/participant dev\"",
+    "dev:dashboards": "concurrently -k -n admin,user -c cyan,magenta \"pnpm --filter @hackos/admin dev\" \"pnpm --filter @hackos/participant dev\"",
     "emulators": "firebase emulators:start --only auth,firestore --import=./firebase/emulator-data --export-on-exit",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -16,7 +16,7 @@
     "superadmin": "pnpm --filter @hackos/scripts superadmin",
     "seed": "pnpm --filter @hackos/scripts seed",
     "simulate": "pnpm --filter @hackos/scripts simulate",
-    "test:emu": "firebase emulators:exec --only auth,firestore \"corepack pnpm --filter @hackos/server test:emu\"",
+    "test:emu": "firebase emulators:exec --only auth,firestore \"pnpm --filter @hackos/server test:emu\"",
     "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "devDependencies": {

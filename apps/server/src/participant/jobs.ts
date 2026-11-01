@@ -1,14 +1,9 @@
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
 import { col } from "../core/events.js";
 import { enqueue } from "../core/outbox.js";
 
-export async function matchTravelCircles(eventId: string) {
-  const plans = await col(eventId, "travelPlans").get();
-  const groups = new Map<string, string[]>();
-  for (const p of plans.docs) { const day = (p.get("arriveAt") as Timestamp).toDate().toISOString().slice(0, 10); const city = String(p.get("city") ?? "").trim().toLowerCase().replace(/\s+/g, "-"); const route = String(p.get("route") ?? "").trim().toLowerCase().replace(/\s+/g, "-"); const key = `${city}:${route}|${p.get("mode")}|${day}`; groups.set(key, [...(groups.get(key) ?? []), p.id]); }
-  for (const [key, members] of groups) { if (members.length < 2) continue; const [route, mode, day] = key.split("|"); const id = Buffer.from(key).toString("base64url").slice(0, 40); await col(eventId, "circles").doc(id).set({ route, mode, day, members, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); }
-  return groups.size;
-}
+// Circle matching moved to circles.ts (nearby cities, arrival window).
+export { matchTravelCircles } from "./circles.js";
 
 export async function sendMentorReminders(eventId: string, now = Date.now()) {
   const slots = await col(eventId, "mentorSlots").where("status", "==", "booked").where("startAt", ">=", Timestamp.fromMillis(now + 9 * 60_000)).where("startAt", "<=", Timestamp.fromMillis(now + 11 * 60_000)).get();

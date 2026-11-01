@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { EventBody, EventPatchBody, DOC } from "@hackos/shared";
+import { EventBody, EventContent, EventPatchBody, DOC } from "@hackos/shared";
+import { isOurCloudinaryUrl } from "../../core/cloudinary.js";
+import { HttpError } from "../../core/http.js";
 import { writeAudit } from "../../core/audit.js";
 import { requireEventAccess, requireRole, param } from "../../core/auth.js";
 import { eventRef, getEvent } from "../../core/events.js";
@@ -82,4 +84,17 @@ eventsRouter.patch("/:eventId", requireEventAccess, requireRole("organizer"), as
   );
   await batch.commit();
   res.json(await getEvent(eventId));
+});
+
+/** Participant-facing content: venue, tagline, rules, prizes, alumni and the venue map. */
+eventsRouter.put("/:eventId/content", requireEventAccess, requireRole("organizer"), async (req, res) => {
+  const eventId = param(req, "eventId");
+  const content = parseBody(req, EventContent);
+  if (content.map.imageUrl && !isOurCloudinaryUrl(content.map.imageUrl))
+    throw new HttpError(400, "BAD_UPLOAD_URL", "Upload the venue map through HACKOS");
+  const batch = db.batch();
+  batch.update(eventRef(eventId), { content });
+  await writeAudit({ eventId, actor: req.user!.uid, action: "event.content", target: eventId, after: content }, batch);
+  await batch.commit();
+  res.json(content);
 });

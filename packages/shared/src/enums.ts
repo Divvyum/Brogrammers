@@ -74,7 +74,8 @@ export type CheckinResult = z.infer<typeof CheckinResult>;
 // Outbox (plan 4.4).
 export const Channel = z.enum(["whatsapp", "email", "push"]);
 export type Channel = z.infer<typeof Channel>;
-export const OutboxStatus = z.enum(["queued", "sending", "sent", "failed"]);
+/** "skipped": the recipient turned this kind of message off (notification preferences). */
+export const OutboxStatus = z.enum(["queued", "sending", "sent", "failed", "skipped"]);
 export type OutboxStatus = z.infer<typeof OutboxStatus>;
 /** 0 = emergency, sent before everything else. */
 export const Priority = z.union([z.literal(0), z.literal(1), z.literal(2)]);

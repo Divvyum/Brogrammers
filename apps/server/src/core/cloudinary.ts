@@ -10,6 +10,7 @@ export const UPLOAD_LIMITS = {
   "complaint-evidence": { maxBytes: 10 * 1024 * 1024, formats: "jpg,jpeg,png,pdf" },
   photos: { maxBytes: 2 * 1024 * 1024, formats: "jpg,jpeg,png,webp" },
   submissions: { maxBytes: 10 * 1024 * 1024, formats: "pdf,ppt,pptx" },
+  venue: { maxBytes: 5 * 1024 * 1024, formats: "jpg,jpeg,png,webp,pdf" },
 } as const;
 export type UploadFolder = keyof typeof UPLOAD_LIMITS;
 

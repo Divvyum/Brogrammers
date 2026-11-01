@@ -10,7 +10,7 @@ import { respondToOffer } from "../admin/replacement/waitlist.js";
 import { refreshGithub } from "../admin/submissions/routes.js";
 import { detectDuplicates } from "../admin/registrations/duplicates.js";
 import { isOurCloudinaryUrl, signUpload } from "../core/cloudinary.js";
-import { encrypt, hashEmail, normalizeEmail } from "../core/crypto.js";
+import { decrypt, encrypt, hashEmail, normalizeEmail } from "../core/crypto.js";
 import { col, eventRef, getEvent } from "../core/events.js";
 import { db } from "../core/firebase.js";
 import { app } from "../core/firebase.js";
@@ -20,9 +20,11 @@ import { conflict, forbidden, HttpError, notFound } from "../core/http.js";
 import { enqueue } from "../core/outbox.js";
 import { strictLimiter } from "../core/rateLimit.js";
 import { parseBody } from "../core/validate.js";
-import { OtpRequest, OtpVerify, requestOtp, verifyOtp } from "./auth.js";
+import { claimByEmail, OtpRequest, OtpVerify, requestOtp, verifyOtp } from "./auth.js";
 import { requireParticipant } from "./middleware.js";
 import { createTeam, joinTeam, leaveTeam } from "./team.js";
+import { matchTravelCircles } from "./circles.js";
+import { registerPortalRoutes } from "./portal.js";
 
 const body =
   <T extends z.ZodType>(schema: T) =>
@@ -44,6 +46,20 @@ participantPublicRouter.post("/auth/otp/verify", strictLimiter, async (req, res)
   const b = body(OtpVerify)(req);
   res.json(await verifyOtp(b.phone, b.eventId, b.code));
 });
+/** Public: the event behind a code (the app needs its ID before login). */
+participantPublicRouter.get("/public/event", async (req, res) => {
+  const code = z.string().trim().min(1).parse(req.query.code).toUpperCase();
+  const s = await db.collection("events").where("code", "==", code).limit(1).get();
+  const e = s.docs[0];
+  if (!e) throw notFound("Event");
+  res.json({ id: e.id, name: e.get("name"), code: e.get("code"), mode: e.get("mode"), startAt: e.get("startAt"), endAt: e.get("endAt"), tracks: e.get("tracks"), venue: (e.get("content") as { venue?: string } | undefined)?.venue ?? "" });
+});
+/** Email-link fallback (M5): swap a fresh email-link session for the participant account. */
+participantPublicRouter.post("/auth/email/claim", strictLimiter, async (req, res) => {
+  const header = req.headers.authorization ?? "";
+  const { eventId } = body(z.object({ eventId: id }))(req);
+  res.json(await claimByEmail(header.startsWith("Bearer ") ? header.slice(7) : "", eventId));
+});
 participantPublicRouter.post("/enroll", strictLimiter, async (req, res) => {
   const b = body(z.object({ eventId: id, token: id, devicePubKey: id }))(req);
   res.json(await enrollWithToken(b.eventId, b.token, b.devicePubKey));
@@ -58,7 +74,13 @@ participantRouter.get("/me", async (req, res) => {
     db.collection("users").doc(uid).get(),
     participant(eventId, uid).get(),
   ]);
-  res.json({ uid, profile: u.data() ?? null, registration: p.data() ?? null });
+  // Never send hashes, ciphertext or push tokens; the email goes out decrypted for the owner.
+  const raw = u.data();
+  const profile = raw
+    ? Object.fromEntries(Object.entries(raw).filter(([k]) => !/(Enc|Hash)$/.test(k) && k !== "fcmTokens"))
+    : null;
+  if (profile && typeof raw?.emailEnc === "string") profile.email = decrypt(raw.emailEnc);
+  res.json({ uid, profile, registration: p.data() ?? null });
 });
 participantRouter.get("/status", async (req, res) => {
   const { eventId, uid } = mine(req);
@@ -234,7 +256,12 @@ participantRouter.get("/matching", async (req, res) => {
       return {
         uid: u.id,
         name: u.get("name"),
+        college: u.get("college") ?? null,
+        city: u.get("city") ?? null,
+        track: pMap.get(u.id)?.get("track") ?? null,
         skills,
+        missing: skills.filter((s) => !mineSkills.has(s.toLowerCase())),
+        sameTrack,
         score: complement * 3 + (sameTrack ? 2 : 0),
       };
     })
@@ -337,28 +364,9 @@ participantRouter.put("/travel", async (req, res) => {
       arriveAt: Timestamp.fromDate(new Date(b.arriveAt)),
       updatedAt: FieldValue.serverTimestamp(),
     });
-  const same = await col(eventId, "travelPlans")
-    .where("route", "==", b.route)
-    .where("mode", "==", b.mode)
-    .limit(20)
-    .get();
-  const circle = await col(eventId, "circles").where("route", "==", b.route).limit(1).get();
-  let ref = circle.docs[0]?.ref;
-  if (!ref) {
-    ref = col(eventId, "circles").doc();
-    await ref.create({
-      route: b.route,
-      mode: b.mode,
-      members: [],
-      meetupPoint: "",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-  }
-  await ref.update({
-    members: FieldValue.arrayUnion(...same.docs.map((d) => d.id), uid),
-    carpool: b.carpool,
-  });
-  res.json({ circleId: ref.id });
+  await matchTravelCircles(eventId);
+  const mineCircle = await col(eventId, "circles").where("members", "array-contains", uid).limit(1).get();
+  res.json({ circleId: mineCircle.docs[0]?.id ?? null });
 });
 participantRouter.get("/circles/mine", async (req, res) => {
   const { eventId, uid } = mine(req);
@@ -385,10 +393,14 @@ participantRouter.post("/slots/:slotId/book", async (req, res) => {
     const p = results[1]!;
     if (!s.exists) throw notFound("Slot");
     if (!p.exists) throw notFound("Participant");
+    const previous = p.get("slotId") as string | undefined;
+    if (previous === slot.id) throw conflict("You already booked this slot");
+    if (p.get("checkedInAt")) throw conflict("You're already checked in");
     if ((s.get("booked") ?? 0) >= s.get("capacity")) throw conflict("Slot is full");
-    if (p.get("slotId")) throw conflict("Arrival slot already booked");
     tx.update(slot, { booked: FieldValue.increment(1) });
-    tx.update(p.ref, { slotId: slot.id, status: "travel_booked" });
+    if (previous) tx.update(col(eventId, "slots").doc(previous), { booked: FieldValue.increment(-1) });
+    const early = ["registered", "eligible", "team_locked"].includes(p.get("status"));
+    tx.update(p.ref, { slotId: slot.id, ...(early ? { status: "travel_booked" } : {}) });
   });
   const room = await allotOne(eventId, uid);
   await enqueue({
@@ -483,6 +495,7 @@ participantRouter.post("/mentor-slots/:id/book", async (req, res) => {
   const teamId = p.get("teamId");
   if (!teamId) throw conflict("Join a team first");
   const ref = col(eventId, "mentorSlots").doc(req.params.id);
+  const { topic } = body(z.object({ topic: z.string().trim().max(500).optional() }))(req);
   await db.runTransaction(async (tx) => {
     const s = await tx.get(ref);
     if (!s.exists || s.get("status") !== "open") throw conflict("Slot unavailable");
@@ -491,6 +504,7 @@ participantRouter.post("/mentor-slots/:id/book", async (req, res) => {
     tx.update(ref, {
       teamId,
       bookedBy: uid,
+      topic: topic ?? null,
       status: "booked",
       bookedAt: FieldValue.serverTimestamp(),
     });
@@ -547,6 +561,7 @@ participantRouter.post("/submissions", async (req, res) => {
           (v) => /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(v),
           "GitHub repository URL required",
         ),
+      description: z.string().trim().max(1000).optional(),
     }),
   )(req);
   if (!isOurCloudinaryUrl(b.pptUrl))
@@ -585,13 +600,26 @@ participantRouter.get("/results", async (req, res) => {
   const event = await eventRef(eventId).get();
   if (!event.get("leaderboardVisible")) throw forbidden("Results are not published");
   const p = await participant(eventId, uid).get();
-  const [board, scores] = await Promise.all([
+  const [board, scores, rubrics, teams] = await Promise.all([
     col(eventId, "leaderboard").doc("current").get(),
     col(eventId, "scores")
       .where("teamId", "==", p.get("teamId") ?? "_")
       .get(),
+    col(eventId, "rubric").get(),
+    col(eventId, "teams").select("track").get(),
   ]);
-  res.json({ leaderboard: board.data(), myScores: scores.docs.map(data) });
+  // Only locked (final) scores are shown; the rubric is the one they were given against.
+  const myScores = scores.docs.filter((d) => d.get("locked")).map(data);
+  const round = (myScores[0] as { round?: string } | undefined)?.round;
+  const rubric = rubrics.docs.find((d) => d.id === round) ?? rubrics.docs[0];
+  const track = new Map(teams.docs.map((t) => [t.id, t.get("track") ?? null]));
+  const lb = board.data();
+  res.json({
+    teamId: p.get("teamId") ?? null,
+    leaderboard: lb ? { ...lb, teams: (lb.teams ?? []).map((t: { teamId: string }) => ({ ...t, track: track.get(t.teamId) ?? null })) } : null,
+    rubric: (rubric?.get("criteria") as unknown[]) ?? [],
+    myScores,
+  });
 });
 participantRouter.get("/certificates", async (req, res) => {
   const { eventId, uid } = mine(req);
@@ -618,19 +646,21 @@ participantRouter.post("/rewards/:id/confirm", async (req, res) => {
   const ref = col(eventId, "rewards").doc(req.params.id);
   const reward = await ref.get();
   const p = await participant(eventId, uid).get();
-  if (reward.get("winnerTeamId") !== p.get("teamId")) throw forbidden();
+  if (!reward.exists || reward.get("winnerTeamId") !== p.get("teamId")) throw forbidden();
+  if (reward.get("status") !== "delivered") throw conflict("Only a delivered reward can be confirmed");
   await ref.update({
-    status: "confirmed",
     confirmedAt: FieldValue.serverTimestamp(),
     confirmedBy: uid,
+    history: FieldValue.arrayUnion({ at: Timestamp.now(), by: uid, status: "delivered", note: "Receipt confirmed by the winner" }),
   });
+  await participant(eventId, uid).update({ status: "reward_received" });
   res.json({ confirmed: true });
 });
 participantRouter.post("/complaints", async (req, res) => {
   const { eventId, uid } = mine(req);
   const b = body(
     z.object({
-      rewardId: id,
+      rewardId: id.optional(),
       text: z.string().min(3),
       evidenceUrls: z.array(url).max(10).default([]),
     }),
@@ -642,6 +672,8 @@ participantRouter.post("/complaints", async (req, res) => {
     uid,
     status: "open",
     history: [],
+    // Organizers have three days to resolve it before it escalates (plan D26).
+    deadline: Timestamp.fromMillis(Date.now() + 3 * 86_400_000),
     createdAt: FieldValue.serverTimestamp(),
   });
   res.status(201).json({ id: r.id });
@@ -670,12 +702,18 @@ participantRouter.get("/community", async (req, res) => {
     .where("communityOptIn", "==", true)
     .limit(50)
     .get();
+  const parts = s.empty ? [] : await db.getAll(...s.docs.map((d) => participant(eventId, d.id)));
+  const teamIds = [...new Set(parts.map((p) => p.get("teamId") as string | undefined).filter((t): t is string => Boolean(t)))];
+  const teams = teamIds.length ? await db.getAll(...teamIds.map((t) => col(eventId, "teams").doc(t))) : [];
+  const teamName = new Map(teams.map((t) => [t.id, t.get("name") as string]));
   res.json(
-    s.docs.map((d) => ({
+    s.docs.map((d, i) => ({
       uid: d.id,
       name: d.get("name"),
-      skills: d.get("skills"),
+      college: d.get("college") ?? null,
+      skills: d.get("skills") ?? [],
       githubUsername: d.get("githubUsername"),
+      team: teamName.get(parts[i]?.get("teamId")) ?? null,
     })),
   );
 });
@@ -685,6 +723,8 @@ participantRouter.put("/community/opt-in", async (req, res) => {
   await db.collection("users").doc(uid).update({ communityOptIn: enabled });
   res.json({ enabled });
 });
+
+registerPortalRoutes(participantRouter);
 
 participantRouter.use((_req, res) =>
   res.status(404).json({ error: "NOT_FOUND", message: "No such participant route" }),

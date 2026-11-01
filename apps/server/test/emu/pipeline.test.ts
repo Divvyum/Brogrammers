@@ -41,7 +41,10 @@ describe("D7: seed", () => {
     expect(await count(`events/${E}/slots`)).toBe(6);
     expect(await count(`events/${E}/submissions`)).toBe(10);
     const roles = s.staff.reduce<Record<string, number>>((m, x) => ({ ...m, [x.role]: (m[x.role] ?? 0) + 1 }), {});
-    expect(roles).toEqual({ organizer: 1, mentor: 5, judge: 5, volunteer: 10 });
+    // Plus the super admin from SUPERADMIN_EMAIL, when it's set.
+    const { superadmin, ...eventStaff } = roles;
+    expect(eventStaff).toEqual({ organizer: 1, mentor: 5, judge: 5, volunteer: 10 });
+    expect(superadmin ?? 0).toBe(process.env.SUPERADMIN_EMAIL ? 1 : 0);
     const rubric = await db.doc(DOC.rubric(E)).get();
     expect(rubric.get("criteria").reduce((t: number, c: { weight: number }) => t + c.weight, 0)).toBe(100);
   });
