@@ -20,13 +20,15 @@ export async function startWhatsApp(): Promise<WhatsAppTransport> {
     socket.ev.on("creds.update", auth.saveCreds);
     socket.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
       if (qr && env.waPrintQr) { console.log("[whatsapp] Scan this QR with the spare WhatsApp SIM:"); qrcode.generate(qr, { small: true }); }
-      if (connection === "open") { online = true; attempt = 0; void status.set({ state: "connected", lastConnectedAt: FieldValue.serverTimestamp() }, { merge: true }); }
+      // The admin WhatsApp page shows this QR so it can be scanned from a screen (organizers only).
+      if (qr) void status.set({ state: "qr", qr, qrAt: FieldValue.serverTimestamp() }, { merge: true });
+      if (connection === "open") { online = true; attempt = 0; void status.set({ state: "connected", qr: FieldValue.delete(), lastConnectedAt: FieldValue.serverTimestamp() }, { merge: true }); }
       if (connection === "connecting") void status.set({ state: qr ? "qr" : "connecting" }, { merge: true });
       if (connection === "close") {
         online = false;
         const code = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
-        void status.set({ state: loggedOut ? "logged_out" : "disconnected", lastError: String(lastDisconnect?.error ?? "closed") }, { merge: true });
+        void status.set({ state: loggedOut ? "logged_out" : "disconnected", qr: FieldValue.delete(), lastError: String(lastDisconnect?.error ?? "closed") }, { merge: true });
         if (!loggedOut && !stopped) reconnectTimer = setTimeout(connect, reconnectDelay(attempt++));
       }
     });

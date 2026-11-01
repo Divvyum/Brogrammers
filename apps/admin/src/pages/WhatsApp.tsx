@@ -3,6 +3,7 @@ import { DataTable, Dialog, Field, Loader, PageIntro, Pager, Panel, StatCard, St
 import { useEvent } from "../lib/event";
 import { useAction, useApi, usePaged } from "../lib/hooks";
 import { fmtDate } from "../lib/format";
+import { QrImage } from "../components/Qr";
 
 // WhatsApp dashboard (plan A18): connection state (waiting for the worker in
 // Phase 1), queued/sent/failed counts, failures with retry, message history
@@ -31,9 +32,10 @@ interface Template extends Record<string, unknown> {
 
 export function WhatsApp() {
   const { base } = useEvent();
-  const status = useApi<{ connection: { state: string; waitingForWorker?: boolean; lastConnectedAt?: string; sentToday?: number; failedToday?: number }; counts: Record<string, number> }>(
+  const status = useApi<{ connection: { state: string; qr?: string; waitingForWorker?: boolean; lastConnectedAt?: string; sentToday?: number; failedToday?: number }; counts: Record<string, number> }>(
     base ? `${base}/outbox/status` : null,
-    { refetchInterval: 15_000 },
+    // The login QR changes every ~20 seconds, so poll faster while it is showing.
+    { refetchInterval: 5_000 },
   );
   const [filters, setFilters] = useState({ status: "", template: "", uid: "" });
   const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
@@ -63,6 +65,20 @@ export function WhatsApp() {
         <StatCard label="Sent" value={c.sent ?? 0} />
         <StatCard label="Failed" value={c.failed ?? 0} foot={c.failed ? "Retry from the list below" : ""} />
       </div>
+
+      {conn?.state === "qr" && conn.qr && (
+        <Panel title="Link the WhatsApp number">
+          <div className="split-panels">
+            <QrImage text={conn.qr} size={300} />
+            <ol className="hint" style={{ fontSize: 16, lineHeight: 1.7 }}>
+              <li>On the spare SIM phone, open WhatsApp.</li>
+              <li>Go to Settings → Linked devices → Link a device.</li>
+              <li>Scan this code. It refreshes every 20 seconds; this page updates by itself.</li>
+              <li>When the connection card says “connected”, messages start sending.</li>
+            </ol>
+          </div>
+        </Panel>
+      )}
 
       <div className="toolbar wrap">
         <select value={filters.status} onChange={(e) => set("status", e.target.value)}>
