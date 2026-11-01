@@ -327,4 +327,34 @@ export const RewardStatusBody = z.object({ status: RewardStatus, note: z.string(
 export const RewardProofBody = z.object({ proofUrl: z.url() });
 export const ComplaintRespondBody = z.object({ note: z.string().trim().min(1), status: ComplaintStatus.optional() });
 export const RatingResponseBody = z.object({ response: z.string().trim().min(1) });
-export const UploadSignatureBody = z.object({ folder: z.enum(["reward-proofs", "complaint-evidence"]) });
+export const UploadSignatureBody = z.object({ folder: z.enum(["reward-proofs", "complaint-evidence", "venue"]) });
+
+/** Venue map marker: x and y are percentages of the map image's width and height. */
+export const MapMarker = z.object({
+  layer: z.enum(["rooms", "food", "wash", "mentor", "gate"]),
+  label: z.string().trim().min(1).max(40),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+});
+export type MapMarker = z.infer<typeof MapMarker>;
+
+/** What participants see on the Event page, venue map and Community (edited in the admin app). */
+export const EventContent = z.object({
+  venue: z.string().trim().max(120).default(""),
+  tagline: z.string().trim().max(300).default(""),
+  rulesUrl: z.union([z.url(), z.literal("")]).default(""),
+  helpPhone: z.string().trim().max(30).default(""),
+  /** Organizers' WhatsApp number, digits with country code (for "WhatsApp HELP"). */
+  whatsappNumber: z.string().regex(/^\d{0,15}$/, "Digits only, with country code").default(""),
+  rules: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
+  prizes: z
+    .array(z.object({ place: z.string().trim().min(1).max(40), prize: z.string().trim().min(1).max(120), tone: z.enum(["amber", "slate", "rose", "indigo"]).default("indigo") }))
+    .max(12)
+    .default([]),
+  alumni: z
+    .array(z.object({ name: z.string().trim().min(1).max(80), year: z.string().trim().max(80), now: z.string().trim().max(80), url: z.union([z.url(), z.literal("")]).optional() }))
+    .max(30)
+    .default([]),
+  map: z.object({ imageUrl: z.union([z.url(), z.literal("")]).default(""), markers: z.array(MapMarker).max(80).default([]) }).default({ imageUrl: "", markers: [] }),
+});
+export type EventContent = z.infer<typeof EventContent>;

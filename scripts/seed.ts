@@ -37,7 +37,7 @@ if (process.argv.includes("--pipeline")) {
   await stats.recompute(s.eventId);
 }
 
-console.log(`\nStaff logins (password for all: ${s.password}):`);
+console.log(`\nStaff logins: "Continue with Google" and pick the account, or the development form with password ${s.password}:`);
 for (const st of s.staff) {
   console.log(`  ${st.role.padEnd(10)} ${st.email.padEnd(26)}${st.pin ? ` scanner PIN ${st.pin}` : ""}`);
 }

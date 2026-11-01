@@ -6,6 +6,7 @@ import { decrypt } from "../core/crypto.js";
 import { app, db } from "../core/firebase.js";
 import { render } from "../core/templates.js";
 import { env } from "../core/env.js";
+import { wantsMessage } from "../core/prefs.js";
 import type { WhatsAppTransport } from "./client.js";
 
 const STALE_MS = 2 * 60_000;
@@ -21,13 +22,16 @@ export async function claimMessage(doc: DocumentSnapshot, workerId = env.waWorke
   });
 }
 
-async function deliver(doc: DocumentSnapshot, wa: WhatsAppTransport) {
+/** Sends one message. Returns "skipped" when the person turned this kind of message off. */
+async function deliver(doc: DocumentSnapshot, wa: WhatsAppTransport): Promise<"sent" | "skipped"> {
   const msg = doc.data()!; const uid = msg.to.uid as string;
   const [user, template] = await Promise.all([db.collection(COL.users).doc(uid).get(), db.collection(COL.templates).doc(msg.template).get()]);
+  if (!wantsMessage(user.get("notifications"), msg.template, Number(msg.priority ?? 1), msg.channel)) return "skipped";
   const text = render(template.get("body") ?? msg.vars.reply ?? msg.template, msg.vars ?? {});
   if (msg.channel === "whatsapp") { if (!user.get("phoneEnc")) throw new Error("Participant has no phone"); await wa.sendText(decrypt(user.get("phoneEnc")), text); }
   else if (msg.channel === "email") { const transport = nodemailer.createTransport({ service: "gmail", auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } }); await transport.sendMail({ from: process.env.GMAIL_USER, to: decrypt(user.get("emailEnc")), subject: msg.template, text }); }
-  else { const tokens = (user.get("fcmTokens") as string[]) ?? []; if (!tokens.length) throw new Error("Participant has no push token"); await getMessaging(app).sendEachForMulticast({ tokens, notification: { title: "HACKOS", body: text } }); }
+  else { const tokens = (user.get("fcmTokens") as string[]) ?? []; if (!tokens.length) throw new Error("Participant has no push token"); await getMessaging(app).sendEachForMulticast({ tokens, notification: { title: "AURA", body: text } }); }
+  return "sent";
 }
 
 export async function recoverStaleLocks(now = Date.now()) {
@@ -42,7 +46,13 @@ export async function drainOnce(wa: WhatsAppTransport, limit = 20) {
   for (const doc of queued.docs) {
     if (!await claimMessage(doc)) continue;
     const attempts = Number(doc.get("attempts") ?? 0) + 1;
-    try { await deliver(doc, wa); await doc.ref.update({ status: "sent", attempts, sentAt: FieldValue.serverTimestamp(), lockedBy: FieldValue.delete(), lockedAt: FieldValue.delete() }); sent++; await db.collection("waStatus").doc("current").set({ sentToday: FieldValue.increment(1), queued: FieldValue.increment(-1) }, { merge: true }); }
+    try {
+      const result = await deliver(doc, wa);
+      await doc.ref.update({ status: result, attempts, [result === "sent" ? "sentAt" : "skippedAt"]: FieldValue.serverTimestamp(), lockedBy: FieldValue.delete(), lockedAt: FieldValue.delete() });
+      if (result === "sent") sent++;
+      await db.collection("waStatus").doc("current").set({ ...(result === "sent" ? { sentToday: FieldValue.increment(1) } : {}), queued: FieldValue.increment(-1) }, { merge: true });
+      if (result === "skipped") continue;
+    }
     catch (err) { const failed = attempts >= 5; await doc.ref.update({ status: failed ? "failed" : "queued", attempts, lastError: err instanceof Error ? err.message : String(err), retryAt: failed ? FieldValue.delete() : Timestamp.fromMillis(Date.now() + retryDelay(attempts)), lockedBy: FieldValue.delete(), lockedAt: FieldValue.delete() }); if (failed) await db.collection("waStatus").doc("current").set({ failedToday: FieldValue.increment(1), queued: FieldValue.increment(-1) }, { merge: true }); }
     if (doc.get("priority") !== 0) await sleep(throttleDelay());
   }

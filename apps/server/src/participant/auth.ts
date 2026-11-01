@@ -2,7 +2,7 @@ import { randomInt, timingSafeEqual } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { z } from "zod";
 import { auth, db } from "../core/firebase.js";
-import { encrypt, hashPhone, normalizePhone, sha256Hex } from "../core/crypto.js";
+import { encrypt, hashEmail, hashPhone, normalizePhone, sha256Hex } from "../core/crypto.js";
 import { HttpError } from "../core/http.js";
 import { enqueue } from "../core/outbox.js";
 
@@ -57,6 +57,8 @@ export async function verifyOtp(phone: string, eventId: string, code: string) {
     throw new HttpError(401, "BAD_OTP", "Invalid OTP");
   }
   let uid = challenge.get("uid") as string;
+  // Imported or seeded participants have a profile but no Auth account yet.
+  if (!uid.startsWith("pending_")) await ensureAuthUser(uid, { phoneNumber: `+${normalized}` });
   if (uid.startsWith("pending_")) {
     const user = await auth.createUser({ phoneNumber: `+${normalized}` }).catch(async () => {
       const found = await auth.getUserByPhoneNumber(`+${normalized}`);
@@ -72,4 +74,42 @@ export async function verifyOtp(phone: string, eventId: string, code: string) {
     challenge.get("uid") !== uid ? db.collection("users").doc(challenge.get("uid")).delete() : Promise.resolve(),
   ]);
   return { token: await auth.createCustomToken(uid, { role: "participant", eventId }), uid };
+}
+
+/** Creates the Auth account for an existing profile uid if it doesn't exist yet. */
+export async function ensureAuthUser(uid: string, extra: { phoneNumber?: string; email?: string } = {}) {
+  try {
+    await auth.getUser(uid);
+  } catch {
+    // The phone or email may already sit on another (orphaned) account; create without it then.
+    await auth.createUser({ uid, ...extra }).catch(() => auth.createUser({ uid }));
+  }
+}
+
+/**
+ * Email-link fallback (plan M5). The browser signs in with Firebase's email
+ * link, which proves the address, then calls this with that ID token. If the
+ * address belongs to an existing participant, a token for that account comes
+ * back (one person, one account); otherwise this account becomes a new
+ * participant of the event.
+ */
+export async function claimByEmail(idToken: string, eventId: string) {
+  const decoded = await auth.verifyIdToken(idToken).catch(() => {
+    throw new HttpError(401, "UNAUTHENTICATED", "Invalid ID token");
+  });
+  const email = decoded.email;
+  if (!email || !decoded.email_verified) throw new HttpError(403, "EMAIL_UNVERIFIED", "Sign in with the email link first");
+  const emailHash = hashEmail(email);
+  const existing = await db.collection("users").where("emailHash", "==", emailHash).where("eventId", "==", eventId).limit(1).get();
+  const found = existing.docs[0];
+  if (found && found.get("role") !== "participant") throw new HttpError(403, "STAFF_ACCOUNT", "This email belongs to a staff account; use the admin portal");
+
+  const uid = found?.id ?? decoded.uid;
+  if (found) await ensureAuthUser(uid, { email });
+  await Promise.all([
+    auth.setCustomUserClaims(uid, { role: "participant", eventId }),
+    db.collection("users").doc(uid).set({ role: "participant", eventId, emailHash, emailEnc: encrypt(email.trim().toLowerCase()) }, { merge: true }),
+    db.collection("uniqueKeys").doc(`email_${emailHash}`).set({ uid, createdAt: FieldValue.serverTimestamp() }, { merge: true }),
+  ]);
+  return { token: await auth.createCustomToken(uid, { role: "participant", eventId }), uid, existing: Boolean(found) };
 }

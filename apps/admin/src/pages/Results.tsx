@@ -70,11 +70,11 @@ export function Results() {
                   <XAxis dataKey="name" fontSize={11} />
                   <YAxis domain={[-2.5, 2.5]} />
                   <Tooltip formatter={(v) => [String(v), "z-score"]} />
-                  <ReferenceLine y={1.5} stroke="#c9553f" strokeDasharray="4 4" />
-                  <ReferenceLine y={-1.5} stroke="#c9553f" strokeDasharray="4 4" />
+                  <ReferenceLine y={1.5} stroke="#f43f5e" strokeDasharray="4 4" />
+                  <ReferenceLine y={-1.5} stroke="#f43f5e" strokeDasharray="4 4" />
                   <Bar dataKey="z">
                     {d.consistency.map((c) => (
-                      <Cell key={c.judgeUid} fill={Math.abs(c.z) >= 1.5 ? "#c9553f" : "#1f6a4b"} />
+                      <Cell key={c.judgeUid} fill={Math.abs(c.z) >= 1.5 ? "#f43f5e" : "#6366f1"} />
                     ))}
                   </Bar>
                 </BarChart>

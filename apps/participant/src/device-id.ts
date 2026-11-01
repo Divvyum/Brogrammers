@@ -5,7 +5,7 @@ import {
   type SignedCredential,
   utf8,
 } from "@hackos/shared/crypto";
-import { api } from "./api";
+import { api } from "./lib/api";
 
 const DB = "hackos-participant";
 const STORE = "digital-id";

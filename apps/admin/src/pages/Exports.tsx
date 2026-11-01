@@ -82,7 +82,7 @@ export function Exports() {
                     <XAxis type="number" allowDecimals={false} />
                     <YAxis type="category" dataKey="stage" width={110} fontSize={11} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#1f6a4b" />
+                    <Bar dataKey="count" fill="#6366f1" />
                   </BarChart>
                 </ResponsiveContainer>
               </Panel>
@@ -94,8 +94,8 @@ export function Exports() {
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="expected" name="Expected" fill="#c9d8cc" />
-                    <Bar dataKey="arrived" name="Arrived" fill="#1f6a4b" />
+                    <Bar dataKey="expected" name="Expected" fill="#cdd0fd" />
+                    <Bar dataKey="arrived" name="Arrived" fill="#6366f1" />
                   </BarChart>
                 </ResponsiveContainer>
               </Panel>

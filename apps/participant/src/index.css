@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "./theme-dark.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #141a46;
+  --color-ink-2: #2b3166;
+  --color-muted: #6a7096;
+  --color-faint: #9aa0bf;
+  --color-line: #e7e9f6;
+  --color-surface-2: #fafbff;
+  --color-track: #eceefa;
+  --color-icon: #4d5383;
+  --color-brand-50: #f0f1ff;
+  --color-brand-100: #e4e6fe;
+  --color-brand-200: #cdd0fd;
+  --color-brand-300: #aab0fb;
+  --color-brand-400: #8187f7;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #5048e5;
+  --color-brand-700: #4338ca;
+  --shadow-card: 0 1px 2px rgba(60, 70, 150, 0.04), 0 12px 32px -14px rgba(70, 80, 170, 0.22);
+  --shadow-soft: 0 8px 24px -10px rgba(70, 80, 170, 0.25);
+  --shadow-pop: 0 24px 60px -18px rgba(40, 50, 130, 0.35), 0 2px 6px rgba(40, 50, 130, 0.06);
+  --shadow-btn: 0 10px 24px -8px rgba(92, 80, 240, 0.6);
+}
+
+@layer base {
+  html, body, #root { min-height: 100%; }
+  body {
+    @apply font-sans text-ink antialiased;
+    background-color: #eef0fa;
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, rgba(196, 190, 255, 0.45), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(186, 214, 255, 0.45), transparent 60%),
+      linear-gradient(180deg, #f1f2fc 0%, #eceffa 100%);
+    background-attachment: fixed;
+  }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  ::selection { background: #cdd0fd; }
+  :root { --logo-1: #4338ca; --logo-2: #8b7cf8; }
+}
+
+@layer components {
+  .card {
+    @apply rounded-[22px] border border-white/80 bg-white/80 shadow-card backdrop-blur-sm;
+  }
+  .card-solid { @apply rounded-[22px] border border-white bg-white shadow-card; }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold text-white shadow-btn transition hover:brightness-110 active:brightness-95 disabled:opacity-50;
+    background-image: linear-gradient(100deg, #5b5cf0 0%, #7c5cf6 55%, #8f6bff 100%);
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-white bg-white px-5 py-2.5 text-sm font-semibold text-ink shadow-soft transition hover:bg-brand-50 disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-2 transition hover:bg-brand-50 disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white shadow-soft transition hover:bg-rose-600 disabled:opacity-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-faint outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+  }
+  .label { @apply mb-1.5 block text-[13px] font-semibold text-ink-2; }
+  .th { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted; }
+  .td { @apply px-4 py-3.5 text-sm text-ink-2; }
+}
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes slide-in { from { transform: translateX(100%) } to { transform: none } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+.anim-fade { animation: fade-in .15s ease-out; }
+.anim-pop { animation: pop-in .16s ease-out; }
+.anim-slide { animation: slide-in .22s cubic-bezier(.2,.8,.2,1); }
+.anim-toast { animation: toast-in .2s ease-out; }
+.recharts-wrapper *:focus { outline: none; }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+@keyframes sheet-up { from { transform: translateY(100%) } to { transform: none } }
+.anim-sheet { animation: sheet-up .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,.45) } 100% { box-shadow: 0 0 0 14px rgba(99,102,241,0) } }
+.pulse-ring { animation: pulse-ring 1.8s ease-out infinite; }

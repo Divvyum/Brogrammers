@@ -7,6 +7,8 @@ client and server agree.
 
 ## Participant API (M1–M21)
 
+Full request/response examples for every route: [PARTICIPANT-API.md](PARTICIPANT-API.md).
+
 Public endpoints (App Check is enforced when configured):
 
 | Method | Route | Body |
@@ -121,6 +123,12 @@ Roles: **SA** super admin, **O** organizer, **V** volunteer, **M** mentor. SA ca
 | PATCH | `/:eventId` | O | Any subset of `EventBody` (not `code`). |
 
 ### Per event — `/api/admin/events/:eventId/...`
+
+**Participant page content**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| PUT | `content` | O | Replaces the event's `content`: `{ venue, tagline, rulesUrl, helpPhone, whatsappNumber, rules[], prizes[{ place, prize, tone }], alumni[{ name, year, now, url? }], map: { imageUrl, markers[{ layer: rooms\|food\|wash\|mentor\|gate, label, x, y }] } }`. `x`/`y` are percentages of the map image. The map image must be uploaded through `uploads/sign` with `{ folder: "venue" }`. Shown in the student app; edited on Overview → Participant page. |
 
 **Registrations and duplicates (D8)**
 

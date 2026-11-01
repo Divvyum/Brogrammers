@@ -226,8 +226,8 @@ function GithubInsights({ s, onRefresh, busy }: { s: SubDetail; onRefresh: () =>
               <XAxis dataKey="day" fontSize={10} />
               <YAxis allowDecimals={false} />
               <Tooltip />
-              <Bar dataKey="ok" stackId="a" name="In window" fill="#1f6a4b" />
-              <Bar dataKey="flagged" stackId="a" name="Flagged" fill="#c9553f" />
+              <Bar dataKey="ok" stackId="a" name="In window" fill="#6366f1" />
+              <Bar dataKey="flagged" stackId="a" name="Flagged" fill="#f43f5e" />
             </BarChart>
           </ResponsiveContainer>
           <h4>Contributors</h4>
@@ -238,7 +238,7 @@ function GithubInsights({ s, onRefresh, busy }: { s: SubDetail; onRefresh: () =>
               <Tooltip />
               <Bar dataKey="commits">
                 {gh.contributors.slice(0, 10).map((c) => (
-                  <Cell key={c.login} fill={c.uid ? "#1f6a4b" : "#c9a23f"} />
+                  <Cell key={c.login} fill={c.uid ? "#6366f1" : "#f59e0b"} />
                 ))}
               </Bar>
             </BarChart>

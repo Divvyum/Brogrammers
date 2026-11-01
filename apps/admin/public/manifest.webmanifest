@@ -1,11 +1,11 @@
 {
-  "name": "HACKOS Admin",
-  "short_name": "HACKOS",
-  "description": "HACKOS event administration",
+  "name": "AURA \u00b7 Admin",
+  "short_name": "AURA Admin",
+  "description": "AURA event administration",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f6f2",
-  "theme_color": "#1f6a4b",
+  "background_color": "#eef0fa",
+  "theme_color": "#5b5cf0",
   "icons": [
     {
       "src": "/icon.svg",

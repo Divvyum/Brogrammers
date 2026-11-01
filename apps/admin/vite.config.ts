@@ -3,10 +3,6 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  // Firebase's VITE_* values are shared from the monorepo root `.env`.
-  // Without this, Vite only checks apps/admin/.env and Firebase crashes before
-  // React can render, leaving a blank page.
-  envDir: "../..",
   plugins: [
     react(),
     // Installable PWA with the whole app shell cached, so the scanner opens with

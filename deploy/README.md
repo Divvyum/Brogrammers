@@ -1,5 +1,27 @@
 # Deploying HACKOS to a VPS
 
+## Live install: the okoboji VPS (current)
+
+AURA runs on the shared okoboji server (CyberPanel + OpenLiteSpeed, which own
+ports 80/443, so there is no Caddy/Nginx here):
+
+| What | Where |
+|---|---|
+| Student app | https://aura.okoboji.in |
+| Admin app | https://admin.aura.okoboji.in |
+| API | `/api` on both sites → PM2 process `aura-api` on `127.0.0.1:3210` |
+| Code | `/opt/aura/app` (secrets in `apps/*/.env` and the service-account file, root-only) |
+| Node | `/opt/aura/node` (Node 24, AURA only; the system Node 20 is untouched) |
+| Web server | `/usr/local/lsws/conf/vhosts/{aura,admin.aura}.okoboji.in/vhost.conf`, registered in `httpd_config.conf` |
+| HTTPS | certbot webroot certificates, renewed by the server's existing certbot timer |
+| DNS | `aura` and `admin.aura` A records in the `okoboji.in` zone (PowerDNS on this server) |
+
+- **Update:** `bash deploy/okoboji-vps.sh` from a laptop with the `~/.ssh/aura_vps` key.
+- **Logs and the WhatsApp QR:** `ssh -i ~/.ssh/aura_vps root@147.93.29.129 "pm2 logs aura-api"`.
+- **Health:** `curl https://admin.aura.okoboji.in/api/public/health`.
+
+The sections below describe a dedicated VPS with Caddy instead.
+
 One Ubuntu VPS runs everything: the API server (systemd), both portals (static
 files) and HTTPS (Caddy). Firebase stays the database and login. Budget: any
 1 vCPU / 1 GB machine works.

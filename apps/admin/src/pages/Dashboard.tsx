@@ -110,7 +110,7 @@ export function Dashboard() {
               <XAxis type="number" allowDecimals={false} />
               <YAxis type="category" dataKey="stage" width={90} />
               <Tooltip />
-              <Bar dataKey="value" fill="#1f6a4b" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Panel>
@@ -122,8 +122,8 @@ export function Dashboard() {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="Expected" fill="#c9d8cc" />
-              <Bar dataKey="Arrived" fill="#1f6a4b" />
+              <Bar dataKey="Expected" fill="#cdd0fd" />
+              <Bar dataKey="Arrived" fill="#6366f1" />
             </BarChart>
           </ResponsiveContainer>
         </Panel>

@@ -212,6 +212,39 @@ export async function resetEmulators(projectId: string) {
   await fetch(`http://${au}/emulator/v1/projects/${projectId}/accounts`, { method: "DELETE" });
 }
 
+/**
+ * Gives a seeded account a Google identity too, so it shows up in the Auth
+ * emulator's "Sign in with Google" picker (the emulator has no real Google).
+ */
+async function linkGoogle(uid: string, email: string, displayName: string) {
+  const user = await auth.getUser(uid);
+  if (user.providerData.some((p) => p.providerId === "google.com")) return;
+  await auth.updateUser(uid, { providerToLink: { providerId: "google.com", uid: `google-${email}`, email, displayName } });
+}
+
+/** The super admin from SUPERADMIN_EMAIL, so the real owner can sign in locally with "Google". */
+async function superAdmin(w: BulkWriter) {
+  const email = process.env.SUPERADMIN_EMAIL;
+  if (!email) return null;
+  let user;
+  try {
+    user = await auth.getUserByEmail(email);
+  } catch {
+    user = await auth.createUser({ email, password: PASSWORD, displayName: email.split("@")[0], emailVerified: true });
+  }
+  await linkGoogle(user.uid, email, user.displayName ?? email);
+  await auth.setCustomUserClaims(user.uid, { role: "superadmin", eventId: "*" });
+  w.set(db.collection(COL.users).doc(user.uid), {
+    name: user.displayName ?? email,
+    role: "superadmin",
+    eventId: "*",
+    emailHash: hashEmail(email),
+    emailEnc: encrypt(email),
+    skills: [],
+  });
+  return { role: "superadmin", email, uid: user.uid };
+}
+
 async function staffUser(
   role: string,
   email: string,
@@ -231,6 +264,7 @@ async function staffUser(
       emailVerified: true,
     });
   }
+  await linkGoogle(user.uid, email, name);
   await auth.setCustomUserClaims(user.uid, { role, eventId });
   w.set(db.collection(COL.users).doc(user.uid), {
     name,
@@ -351,6 +385,8 @@ export async function seed(opts: { seed?: number; now?: Date } = {}): Promise<Se
     staff.push({ role, email, uid });
     return uid;
   };
+  const sa = await superAdmin(w);
+  if (sa) staff.push(sa);
   await add("organizer", 1);
   const mentors = [];
   for (let i = 1; i <= 5; i++) mentors.push(await add("mentor", i));
