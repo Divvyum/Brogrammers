@@ -156,14 +156,15 @@ function Wizard({ initial, creating, onToggleNew, onCreated }: { initial: Draft;
                 <input value={d.name} onChange={(e) => set({ name: e.target.value })} />
               </Field>
               <Field label="Event code" hint="Volunteers type this at scanner login. Can't change later.">
-                <input value={d.code} disabled={!creating} onChange={(e) => set({ code: e.target.value.toUpperCase() })} />
+                <input value={d.code} disabled={!creating} maxLength={12} placeholder="HACK26" onChange={(e) => set({ code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} />
               </Field>
-              <Field label="Starts">
+              <Field label="Starts" hint="Pick both the date and the time.">
                 <DateTimeInput value={d.startAt} onChange={(v) => set({ startAt: v })} />
               </Field>
-              <Field label="Ends">
+              <Field label="Ends" hint="Pick both the date and the time.">
                 <DateTimeInput value={d.endAt} onChange={(v) => set({ endAt: v })} />
               </Field>
+              {issues.Basics && <p className="notice review">{issues.Basics}</p>}
             </>
           )}
           {name === "Mode" && (
