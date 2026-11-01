@@ -1,0 +1,106 @@
+/*
+ * Dark theme. Toggled by adding the `dark` class to <html> (see src/lib/theme.ts).
+ * Tailwind v4 utilities read colours from CSS variables, so remapping the
+ * variables here re-colours every bg-white / text-ink / emerald-50 … at once.
+ * Unlayered rules win over Tailwind's layered utilities.
+ */
+html.dark {
+  color-scheme: dark;
+
+  /* surfaces + text */
+  --color-white: #161a38;
+  --color-surface-2: #1b2045;
+  --color-track: #262b55;
+  --color-ink: #eef0ff;
+  --color-ink-2: #c5c9ee;
+  --color-muted: #959bc6;
+  --color-faint: #6c73a3;
+  --color-line: #2a3060;
+  --color-icon: #aab0dc;
+  --logo-1: #8b8ff8;
+  --logo-2: #c4b5fd;
+
+  /* brand */
+  --color-brand-50: #20255a;
+  --color-brand-100: #292f6c;
+  --color-brand-200: #373e86;
+  --color-brand-300: #4c54ad;
+  --color-brand-400: #7177ec;
+  --color-brand-500: #7074f6;
+  --color-brand-600: #a2a5ff;
+  --color-brand-700: #babcff;
+
+  /* status palettes: light tints become translucent, dark text becomes light */
+  --color-emerald-50: rgb(16 185 129 / 0.13);  --color-emerald-100: rgb(16 185 129 / 0.22); --color-emerald-200: rgb(16 185 129 / 0.32);
+  --color-emerald-600: #34d399; --color-emerald-700: #6ee7b7; --color-emerald-800: #a7f3d0;
+  --color-teal-50: rgb(20 184 166 / 0.13); --color-teal-100: rgb(20 184 166 / 0.22); --color-teal-200: rgb(20 184 166 / 0.32);
+  --color-teal-600: #2dd4bf; --color-teal-700: #5eead4; --color-teal-800: #99f6e4;
+  --color-amber-50: rgb(245 158 11 / 0.13); --color-amber-100: rgb(245 158 11 / 0.22); --color-amber-200: rgb(245 158 11 / 0.32);
+  --color-amber-600: #fbbf24; --color-amber-700: #fcd34d; --color-amber-800: #fde68a;
+  --color-rose-50: rgb(244 63 94 / 0.13); --color-rose-100: rgb(244 63 94 / 0.22); --color-rose-200: rgb(244 63 94 / 0.32);
+  --color-rose-600: #fb7185; --color-rose-700: #fda4af; --color-rose-800: #fecdd3;
+  --color-blue-50: rgb(59 130 246 / 0.14); --color-blue-100: rgb(59 130 246 / 0.22); --color-blue-200: rgb(59 130 246 / 0.32);
+  --color-blue-600: #60a5fa; --color-blue-700: #93c5fd; --color-blue-800: #bfdbfe;
+  --color-sky-50: rgb(14 165 233 / 0.14); --color-sky-100: rgb(14 165 233 / 0.22);
+  --color-sky-600: #38bdf8; --color-sky-700: #7dd3fc;
+  --color-violet-50: rgb(139 92 246 / 0.15); --color-violet-100: rgb(139 92 246 / 0.24); --color-violet-200: rgb(139 92 246 / 0.34);
+  --color-violet-600: #a78bfa; --color-violet-700: #c4b5fd; --color-violet-800: #ddd6fe;
+  --color-pink-50: rgb(236 72 153 / 0.14); --color-pink-100: rgb(236 72 153 / 0.22);
+  --color-pink-600: #f472b6; --color-pink-700: #f9a8d4;
+  --color-orange-50: rgb(249 115 22 / 0.14); --color-orange-100: rgb(249 115 22 / 0.22);
+  --color-orange-600: #fb923c; --color-orange-700: #fdba74;
+  --color-slate-100: #252a4f; --color-slate-200: #30365e; --color-slate-300: #424977;
+  --color-slate-600: #b5bbdc; --color-slate-700: #cdd1ea;
+}
+
+html.dark body {
+  background-color: #0c0f24;
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, rgba(99, 102, 241, 0.16), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(59, 130, 246, 0.12), transparent 60%),
+    linear-gradient(180deg, #0e1128 0%, #0b0e22 100%);
+}
+html.dark ::selection { background: #373e86; }
+
+/* text-white on gradient buttons, avatars and pills must stay white */
+html.dark .text-white { color: #fff; }
+html.dark .placeholder\:text-muted::placeholder { color: var(--color-faint); }
+
+/* card edges: the light theme uses white borders, swap for a faint line */
+html.dark .card,
+html.dark .card-solid,
+html.dark .border-white,
+html.dark .border-white\/80,
+html.dark .border-white\/70,
+html.dark .border-white\/60 { border-color: rgb(255 255 255 / 0.06); }
+html.dark .ring-white { --tw-ring-color: rgb(255 255 255 / 0.06); }
+html.dark .shadow-card { box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -14px rgb(0 0 0 / 0.6); }
+html.dark .shadow-pop { box-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.06); }
+html.dark .shadow-soft { box-shadow: 0 8px 24px -10px rgb(0 0 0 / 0.6); }
+
+/* toggle knobs and QR codes stay white */
+html.dark .keep-white { background-color: #fff; }
+
+/* white-with-opacity on gradient cards must stay white in dark mode */
+html.dark .text-white\/50 { color: rgb(255 255 255 / 0.5); }
+html.dark .text-white\/60 { color: rgb(255 255 255 / 0.6); }
+html.dark .text-white\/70 { color: rgb(255 255 255 / 0.7); }
+html.dark .text-white\/75 { color: rgb(255 255 255 / 0.75); }
+html.dark .text-white\/80 { color: rgb(255 255 255 / 0.8); }
+html.dark .text-white\/85 { color: rgb(255 255 255 / 0.85); }
+html.dark .text-white\/90 { color: rgb(255 255 255 / 0.9); }
+html.dark .bg-white\/5 { background-color: rgb(255 255 255 / 0.05); }
+html.dark .hover\:bg-white\/5:hover { background-color: rgb(255 255 255 / 0.05); }
+html.dark .bg-white\/10 { background-color: rgb(255 255 255 / 0.1); }
+html.dark .hover\:bg-white\/10:hover { background-color: rgb(255 255 255 / 0.1); }
+html.dark .bg-white\/15 { background-color: rgb(255 255 255 / 0.15); }
+html.dark .hover\:bg-white\/15:hover { background-color: rgb(255 255 255 / 0.15); }
+html.dark .bg-white\/20 { background-color: rgb(255 255 255 / 0.2); }
+html.dark .hover\:bg-white\/20:hover { background-color: rgb(255 255 255 / 0.2); }
+html.dark .bg-white\/25 { background-color: rgb(255 255 255 / 0.25); }
+html.dark .hover\:bg-white\/25:hover { background-color: rgb(255 255 255 / 0.25); }
+html.dark .ring-white\/15 { --tw-ring-color: rgb(255 255 255 / 0.15); }
+html.dark .ring-white\/20 { --tw-ring-color: rgb(255 255 255 / 0.2); }
+html.dark .ring-white\/25 { --tw-ring-color: rgb(255 255 255 / 0.25); }
+html.dark .ring-white\/40 { --tw-ring-color: rgb(255 255 255 / 0.4); }
+html.dark .ring-white\/50 { --tw-ring-color: rgb(255 255 255 / 0.5); }
